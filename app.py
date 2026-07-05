@@ -3,84 +3,60 @@
 Project : AI-Powered Retail Demand Forecasting &
           Inventory Optimization System
 
-Repository : Capstone_Inventory_Optimization
-
 File : app.py
 
-Author : Capstone Group -2 
-
-Version : 0.1.0
-
 Description :
-Application entry point.
-
-This file initializes the Streamlit application and displays the
-landing page. Business logic should not be implemented here.
+Main entry point of the application.
 =============================================================================
 """
 
 import streamlit as st
 
-from config import (
-    APP_NAME,
-    VERSION,
-    AUTHOR
-)
+from config import APP_NAME
 
 from database.init_db import initialize_database
 
-# -----------------------------------------------------------------------------
-# Streamlit Page Configuration
-# -----------------------------------------------------------------------------
+from auth.session import SessionManager
+from auth.login import login_page
+
+from utils.navigation import sidebar
+from utils.router import route
+
+
+# ---------------------------------------------------------------------
+# Application Initialization
+# ---------------------------------------------------------------------
 
 st.set_page_config(
+
     page_title=APP_NAME,
+
     page_icon="📦",
+
     layout="wide",
+
     initial_sidebar_state="expanded"
+
 )
 
 initialize_database()
-# -----------------------------------------------------------------------------
-# Home Page
-# -----------------------------------------------------------------------------
 
-st.title(APP_NAME)
+SessionManager.initialize()
 
-st.markdown("---")
+# ---------------------------------------------------------------------
+# Login
+# ---------------------------------------------------------------------
 
-st.subheader("Welcome")
+if not st.session_state.logged_in:
 
-st.write(
-    """
-Welcome to the **AI-Powered Retail Demand Forecasting &
-Inventory Optimization System**.
+    login_page()
 
-This application is being developed as a professional MBA Capstone Project.
+    st.stop()
 
-The system will help retail businesses:
+# ---------------------------------------------------------------------
+# Navigation
+# ---------------------------------------------------------------------
 
-- Forecast monthly product demand
-- Optimize inventory
-- Upload and manage multiple datasets
-- Generate business reports
-- Gain AI-powered business insights
-"""
-)
+page = sidebar()
 
-st.markdown("---")
-
-col1, col2, col3 = st.columns(3)
-
-with col1:
-    st.metric("Version", VERSION)
-
-with col2:
-    st.metric("Status", "Development")
-
-with col3:
-    st.metric("Author", AUTHOR)
-
-st.info(
-    "Milestone 1 - Foundation & Authentication is currently under development."
-)
+route(page)
