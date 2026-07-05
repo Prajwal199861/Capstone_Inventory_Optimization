@@ -7,7 +7,7 @@ Repository : Capstone_Inventory_Optimization
 
 File : base.py
 
-Author : Prajwal Srivatsa
+Author : Group -2
 
 Version : 0.1.0
 
