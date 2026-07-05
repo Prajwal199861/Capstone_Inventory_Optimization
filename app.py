@@ -27,6 +27,8 @@ from config import (
     AUTHOR
 )
 
+from database.init_db import initialize_database
+
 # -----------------------------------------------------------------------------
 # Streamlit Page Configuration
 # -----------------------------------------------------------------------------
@@ -38,6 +40,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+initialize_database()
 # -----------------------------------------------------------------------------
 # Home Page
 # -----------------------------------------------------------------------------
