@@ -7,7 +7,7 @@ Repository : Capstone_Inventory_Optimization
 
 File : config.py
 
-Author : team
+Author : Capstone Group -2 
 
 Version : 0.1.0
 
@@ -31,7 +31,7 @@ APP_SHORT_NAME = "Retail Demand AI"
 
 VERSION = "0.1.0"
 
-AUTHOR = "Prajwal Srivatsa"
+AUTHOR = "Capstone Group -2 "
 
 
 # =============================================================================
