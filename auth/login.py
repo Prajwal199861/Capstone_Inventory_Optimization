@@ -1,46 +1,62 @@
-"""
-=============================================================================
-Login Screen
-=============================================================================
-"""
-
 import streamlit as st
 
 from auth.session import SessionManager
+
 from services.authentication_service import AuthenticationService
 
 
 def login_page():
 
-    st.title("🔐 Login")
+    left, center, right = st.columns([1,2,1])
 
-    st.markdown("### AI-Powered Retail Demand Forecasting & Inventory Optimization")
+    with center:
 
-    username = st.text_input("Username")
+        st.markdown("<br><br>",unsafe_allow_html=True)
 
-    password = st.text_input(
-        "Password",
-        type="password"
-    )
+        st.title("Retail AI")
 
-    if st.button(
-            "Login",
-            use_container_width=True
-    ):
-
-        user = AuthenticationService.login(
-            username,
-            password
+        st.caption(
+            "Demand Forecasting & Inventory Optimization"
         )
 
-        if user:
+        st.divider()
 
-            SessionManager.login(user)
+        username = st.text_input(
+            "Username"
+        )
 
-            st.success("Login Successful")
+        password = st.text_input(
 
-            st.rerun()
+            "Password",
 
-        else:
+            type="password"
 
-            st.error("Invalid Username or Password")
+        )
+
+        if st.button(
+
+                "LOGIN",
+
+                use_container_width=True
+
+        ):
+
+            user = AuthenticationService.login(
+
+                username,
+
+                password
+
+            )
+
+            if user:
+
+                SessionManager.login(user)
+
+                st.rerun()
+
+            st.error(
+
+                "Invalid username or password."
+
+            )

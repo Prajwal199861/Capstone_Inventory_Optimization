@@ -22,6 +22,19 @@ from auth.login import login_page
 from utils.navigation import sidebar
 from utils.router import route
 
+def load_css():
+
+    with open(
+            "assets/css/style.css"
+    ) as f:
+
+        st.markdown(
+
+            f"<style>{f.read()}</style>",
+
+            unsafe_allow_html=True
+
+        )
 
 # ---------------------------------------------------------------------
 # Application Initialization
@@ -38,6 +51,8 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 
 )
+
+load_css()
 
 initialize_database()
 

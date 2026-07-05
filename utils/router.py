@@ -6,15 +6,19 @@ Router
 
 from pages.Dashboard import dashboard
 
+import streamlit as st
 
-def route(page: str):
 
-    routes = {
+def route(page):
 
-        "Dashboard": dashboard
+    if page == "🏠 Dashboard":
 
-    }
+        dashboard()
 
-    if page in routes:
+    else:
 
-        routes[page]()
+        st.info(
+
+            f"{page} will be available in upcoming milestones."
+
+        )

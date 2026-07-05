@@ -1,12 +1,7 @@
-"""
-=============================================================================
-Navigation
-=============================================================================
-"""
-
 import streamlit as st
 
 from auth.logout import logout
+from components.sidebar import user_profile
 
 
 def sidebar():
@@ -15,31 +10,41 @@ def sidebar():
 
         st.title("Retail AI")
 
-        st.write(
-            f"Welcome, **{st.session_state.full_name}**"
-        )
+        st.caption("Inventory Intelligence")
 
-        st.write(
-            f"Role : **{st.session_state.role}**"
-        )
+        st.divider()
+
+        user_profile()
 
         st.divider()
 
         page = st.radio(
 
-            "Navigation",
+            "",
 
             [
 
-                "Dashboard",
+                "🏠 Dashboard",
 
-                "Logout"
+                "📂 Datasets",
+
+                "📦 Products",
+
+                "📈 Forecast",
+
+                "🏭 Inventory",
+
+                "📑 Reports",
+
+                "⚙ Administration",
+
+                "🚪 Logout"
 
             ]
 
         )
 
-        if page == "Logout":
+        if page == "🚪 Logout":
 
             logout()
 
