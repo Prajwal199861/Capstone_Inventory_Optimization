@@ -7,7 +7,7 @@ Repository : Capstone_Inventory_Optimization
 
 File : app.py
 
-Author : team
+Author : Capstone Group -2 
 
 Version : 0.1.0
 
