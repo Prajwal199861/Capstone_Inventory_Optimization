@@ -4,21 +4,28 @@ Router
 =============================================================================
 """
 
-from pages.Dashboard import dashboard
-
 import streamlit as st
+
+from pages.dashboard import dashboard
+from pages.dataset_management import dataset_management
 
 
 def route(page):
 
-    if page == "🏠 Dashboard":
+    routes = {
 
-        dashboard()
+        "🏠 Dashboard": dashboard,
+
+        "📂 Datasets": dataset_management,
+
+    }
+
+    if page in routes:
+
+        routes[page]()
 
     else:
 
         st.info(
-
-            f"{page} will be available in upcoming milestones."
-
+            f"{page} module will be available in upcoming milestones."
         )

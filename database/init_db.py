@@ -6,6 +6,9 @@ Database Initialization
 
 from database.base import Base
 from database.engine import engine
+from models.dataset import Dataset
+from models.dataset_file import DatasetFile
+from models.column_mapping import ColumnMapping
 
 # Import Models
 from models.role import Role
