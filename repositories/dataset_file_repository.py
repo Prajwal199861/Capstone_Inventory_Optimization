@@ -64,3 +64,25 @@ class DatasetFileRepository:
     ):
 
         self.session.delete(dataset_file)
+
+    def get_by_dataset_id(
+            self,
+            dataset_id: int
+    ):
+        return (
+
+            self.session
+
+            .query(DatasetFile)
+
+            .filter(
+                DatasetFile.dataset_id == dataset_id
+            )
+
+            .order_by(
+                DatasetFile.entity_type
+            )
+
+            .all()
+
+        )

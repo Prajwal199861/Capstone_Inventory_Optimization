@@ -88,3 +88,25 @@ class DatasetRepository:
     ):
 
         self.session.delete(dataset)
+
+    def get_by_user(
+            self,
+            user_id: int
+    ):
+        return (
+
+            self.session
+
+            .query(Dataset)
+
+            .filter(
+                Dataset.created_by == user_id
+            )
+
+            .order_by(
+                Dataset.created_at.desc()
+            )
+
+            .all()
+
+        )

@@ -48,3 +48,22 @@ class DatasetService:
         finally:
 
             session.close()
+
+    @staticmethod
+    def get_user_datasets(
+            user_id: int
+    ):
+
+        session = SessionLocal()
+
+        try:
+
+            repository = DatasetRepository(session)
+
+            return repository.get_by_user(
+                user_id
+            )
+
+        finally:
+
+            session.close()

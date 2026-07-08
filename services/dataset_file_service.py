@@ -140,3 +140,24 @@ class DatasetFileService:
         finally:
 
             session.close()
+
+    @staticmethod
+    def get_dataset_files(
+            dataset_id: int
+    ):
+
+        session = SessionLocal()
+
+        try:
+
+            repository = DatasetFileRepository(
+                session
+            )
+
+            return repository.get_by_dataset_id(
+                dataset_id
+            )
+
+        finally:
+
+            session.close()

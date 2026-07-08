@@ -1,0 +1,66 @@
+"""
+=============================================================================
+Column Mapping Service
+=============================================================================
+"""
+
+from database.session import SessionLocal
+
+from models.column_mapping import ColumnMapping
+
+from repositories.column_mapping_repository import (
+    ColumnMappingRepository
+)
+
+
+class ColumnMappingService:
+
+    @staticmethod
+    def save_mapping(
+            dataset_file_id: int,
+            mapping: dict
+    ):
+
+        session = SessionLocal()
+
+        try:
+
+            repository = ColumnMappingRepository(session)
+
+            repository.delete_existing(
+                dataset_file_id
+            )
+
+            mappings = []
+
+            for business_field, source_column in mapping.items():
+
+                mappings.append(
+
+                    ColumnMapping(
+
+                        dataset_file_id=dataset_file_id,
+
+                        business_field=business_field,
+
+                        source_column=source_column
+
+                    )
+
+                )
+
+            repository.save_all(
+                mappings
+            )
+
+            session.commit()
+
+        except Exception:
+
+            session.rollback()
+
+            raise
+
+        finally:
+
+            session.close()
