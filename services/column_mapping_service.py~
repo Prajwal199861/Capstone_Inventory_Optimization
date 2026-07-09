@@ -16,12 +16,12 @@ class ColumnMappingService:
                 dataset_file_id
             )
             mappings = []
-            for business_field, mapped_column in mapping.items():
+            for business_field, dataset_column in mapping.items():
                 mappings.append(
                     ColumnMapping(
                         dataset_file_id=dataset_file_id,
                         business_field=business_field,
-                        mapped_column=mapped_column
+                        dataset_column=dataset_column
                     )
                 )
             repository.save_all(

@@ -1,29 +1,59 @@
-"""
-=============================================================================
-DataFrame Utilities
-=============================================================================
-"""
-
-from pathlib import Path
-
 import pandas as pd
 
 
 class DataFrameUtils:
 
     @staticmethod
-    def read_dataframe(file_path: str):
+    def read_dataframe(file_path):
 
-        extension = Path(file_path).suffix.lower()
+        if file_path.endswith(".csv"):
 
-        if extension == ".csv":
+            encodings = [
 
-            return pd.read_csv(file_path)
+                "utf-8",
 
-        elif extension in [".xls", ".xlsx"]:
+                "utf-8-sig",
+
+                "cp1252",
+
+                "latin1"
+
+            ]
+
+            for encoding in encodings:
+
+                try:
+
+                    return pd.read_csv(
+
+                        file_path,
+
+                        encoding=encoding
+
+                    )
+
+                except UnicodeDecodeError:
+
+                    continue
+
+            raise ValueError(
+
+                f"Unable to read CSV file: {file_path}"
+
+            )
+
+        elif file_path.endswith(".xlsx"):
 
             return pd.read_excel(file_path)
 
-        raise ValueError(
-            f"Unsupported file type : {extension}"
-        )
+        elif file_path.endswith(".xls"):
+
+            return pd.read_excel(file_path)
+
+        else:
+
+            raise ValueError(
+
+                "Unsupported file format."
+
+            )

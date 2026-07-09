@@ -11,6 +11,7 @@ from components.header import page_header
 from components.footer import page_footer
 from services.column_mapping_service import ColumnMappingService
 from services.dataset_file_service import DatasetFileService
+from services.dataset_validation_service import DatasetValidationService
 
 
 def dataset_details():
@@ -98,6 +99,9 @@ def dataset_details():
                         "Map Columns",
                         key=f"map_{file.id}"
                 ):
+                    st.session_state.mapping_file_id = file.id
+
+                if st.session_state.get("mapping_file_id") == file.id:
 
                     mapping = PreviewService.get_column_mapping(
 
@@ -115,12 +119,14 @@ def dataset_details():
 
                     template = mapping["mapping_template"]
 
-                    selected_mapping = {}
-
                     section_icons = {
+
                         "required": "🔴",
+
                         "recommended": "🟡",
+
                         "optional": "⚪"
+
                     }
 
                     for section in ["required", "recommended", "optional"]:
@@ -128,32 +134,34 @@ def dataset_details():
                         if not template.get(section):
                             continue
 
-                        st.markdown(
-                            f"### {section_icons[section]} {section.capitalize()} Fields"
-                        )
+                        with st.expander(
 
-                        for business_field, suggested_column in template[section].items():
+                                f"{section_icons[section]} {section.capitalize()} Fields",
 
-                            columns = ["-- Not Mapped --"] + mapping["columns"]
+                                expanded=(section == "required")
 
-                            if suggested_column in mapping["columns"]:
-                                default_index = columns.index(suggested_column)
-                            else:
-                                default_index = 0
+                        ):
 
-                            selected_mapping[business_field] = st.selectbox(
+                            for business_field, suggested_column in template[section].items():
 
-                                business_field,
+                                columns = ["-- Not Mapped --"] + mapping["columns"]
 
-                                options=columns,
+                                if suggested_column in mapping["columns"]:
+                                    default_index = columns.index(suggested_column)
+                                else:
+                                    default_index = 0
 
-                                index=default_index,
+                                st.selectbox(
 
-                                key=f"{file.id}_{section}_{business_field}"
+                                    business_field,
 
-                            )
+                                    options=columns,
 
-                        st.divider()
+                                    index=default_index,
+
+                                    key=f"{file.id}_{section}_{business_field}"
+
+                                )
 
                     if st.button(
 
@@ -167,10 +175,27 @@ def dataset_details():
 
                         final_mapping = {}
 
-                        for business_field, source_column in selected_mapping.items():
+                        for section in ["required", "recommended", "optional"]:
 
-                            if source_column != "-- Not Mapped --":
-                                final_mapping[business_field] = source_column
+                            if not template.get(section):
+                                continue
+
+                            for business_field in template[section]:
+
+                                widget_key = f"{file.id}_{section}_{business_field}"
+
+                                selected_value = st.session_state.get(widget_key)
+
+                                if (
+
+                                        selected_value
+
+                                        and
+
+                                        selected_value != "-- Not Mapped --"
+
+                                ):
+                                    final_mapping[business_field] = selected_value
 
                         ColumnMappingService.save_mapping(
 
@@ -179,11 +204,21 @@ def dataset_details():
                             final_mapping
 
                         )
+                        DatasetValidationService.validate_dataset(
+                            dataset_id
+                        )
 
                         st.success(
 
                             "Column mapping saved successfully."
 
                         )
+
+                        st.session_state.pop(
+                            "mapping_file_id",
+                            None
+                        )
+
+                        st.rerun()
 
     page_footer()

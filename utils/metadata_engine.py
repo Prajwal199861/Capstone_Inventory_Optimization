@@ -16,14 +16,8 @@ class MetadataEngine:
 
     ENTITY_TEMPLATES = {
 
-        # =====================================================================
-        # SALES
-        # =====================================================================
-
         "Sales": {
-
             "required": {
-
                 "Transaction Date": [
                     "date",
                     "transaction_date",
@@ -31,20 +25,17 @@ class MetadataEngine:
                     "sale_date",
                     "order_date"
                 ],
-
                 "Product ID": [
                     "product_id",
                     "sku",
                     "item_id"
                 ],
-
                 "Quantity": [
                     "qty",
                     "quantity",
                     "units",
                     "sales_quantity"
                 ],
-
                 "Revenue": [
                     "sales",
                     "revenue",
@@ -52,77 +43,54 @@ class MetadataEngine:
                     "total",
                     "sales_amount"
                 ]
-
             },
-
             "recommended": {
-
                 "Store ID": [
                     "store_id",
                     "branch_id",
                     "store"
                 ],
-
                 "Customer ID": [
                     "customer_id",
                     "customer"
                 ],
-
                 "Promotion ID": [
                     "promotion_id",
                     "promo_id",
                     "promotion"
                 ],
-
                 "Discount": [
                     "discount",
                     "discount_amount"
                 ]
-
             },
-
             "optional": {
-
                 "Invoice Number": [
                     "invoice",
                     "invoice_no",
                     "bill_no"
                 ],
-
                 "Payment Mode": [
                     "payment",
                     "payment_mode"
                 ],
-
                 "Currency": [
                     "currency"
                 ]
-
             }
-
         },
-
-        # =====================================================================
-        # PRODUCTS
-        # =====================================================================
-
         "Products": {
-
             "required": {
-
                 "Product ID": [
                     "product_id",
                     "sku"
                 ],
-
                 "Product Name": [
                     "product_name",
                     "item_name",
                     "product"
                 ]
-
             },
-
             "recommended": {
 
                 "Category": [
@@ -177,10 +145,6 @@ class MetadataEngine:
             }
 
         },
-
-        # =====================================================================
-        # STORES
-        # =====================================================================
 
         "Stores": {
 
@@ -254,10 +218,6 @@ class MetadataEngine:
 
         },
 
-        # =====================================================================
-        # INVENTORY
-        # =====================================================================
-
         "Inventory": {
 
             "required": {
@@ -310,10 +270,6 @@ class MetadataEngine:
 
         },
 
-        # =====================================================================
-        # CALENDAR
-        # =====================================================================
-
         "Calendar": {
 
             "required": {
@@ -357,10 +313,6 @@ class MetadataEngine:
             }
 
         },
-
-        # =====================================================================
-        # CUSTOMERS
-        # =====================================================================
 
         "Customers": {
 
@@ -406,10 +358,6 @@ class MetadataEngine:
             }
 
         },
-
-        # =====================================================================
-        # PROMOTIONS
-        # =====================================================================
 
         "Promotions": {
 

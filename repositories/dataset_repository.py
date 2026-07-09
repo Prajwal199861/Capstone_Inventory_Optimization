@@ -110,3 +110,23 @@ class DatasetRepository:
             .all()
 
         )
+
+    def get_by_id(
+            self,
+            dataset_id: int
+    ):
+        return (
+
+            self.session
+
+            .query(Dataset)
+
+            .filter(
+
+                Dataset.id == dataset_id
+
+            )
+
+            .first()
+
+        )
