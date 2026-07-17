@@ -51,15 +51,3 @@ class DatasetFileRepository:
             )
             .all()
         )
-    def get_by_dataset(
-            self,
-            dataset_id: int
-    ):
-        return (
-            self.session
-            .query(DatasetFile)
-            .filter(
-                DatasetFile.dataset_id == dataset_id
-            )
-            .all()
-        )

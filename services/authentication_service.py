@@ -26,6 +26,10 @@ class AuthenticationService:
 
             return None
 
+        if not user.is_active:
+
+            return None
+
         if PasswordManager.verify_password(
 
                 password,
