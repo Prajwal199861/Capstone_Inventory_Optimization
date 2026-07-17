@@ -9,6 +9,7 @@ import streamlit as st
 from pages.dashboard import dashboard
 from pages.dataset_management import dataset_management
 from pages.dataset_details import dataset_details
+from pages.standardized_preview import standardized_preview
 
 
 def route(page):
@@ -26,6 +27,23 @@ def route(page):
 
     ):
         dataset_details()
+
+        return
+
+    if (
+
+            st.session_state.get(
+
+                "current_page"
+
+            )
+
+            ==
+
+            "standardized_preview"
+
+    ):
+        standardized_preview()
 
         return
     routes = {
