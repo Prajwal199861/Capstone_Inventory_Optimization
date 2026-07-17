@@ -24,6 +24,30 @@ def dataset_details():
 
     )
 
+    nav_left, nav_right = st.columns([1, 1])
+
+    with nav_left:
+
+        if st.button("← Back to Datasets"):
+
+            st.session_state.pop("current_page", None)
+
+            st.rerun()
+
+    with nav_right:
+
+        if st.button(
+
+                "🧪 Standardized Preview",
+
+                use_container_width=True
+
+        ):
+
+            st.session_state.current_page = "standardized_preview"
+
+            st.rerun()
+
     dataset_id = st.session_state.selected_dataset_id
 
     files = DatasetFileService.get_dataset_files(
