@@ -66,6 +66,29 @@ class DatasetRepository:
 
         )
 
+    def get_by_status(
+            self,
+            status: str
+    ):
+
+        return (
+
+            self.session
+
+            .query(Dataset)
+
+            .filter(
+                Dataset.status == status
+            )
+
+            .order_by(
+                Dataset.created_at.desc()
+            )
+
+            .all()
+
+        )
+
     def get_all(self):
 
         return (

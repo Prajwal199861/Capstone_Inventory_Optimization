@@ -13,7 +13,8 @@ class EntityDetector:
             "sales",
             "sale",
             "transaction",
-            "invoice"
+            "invoice",
+            "order"
         ],
 
         "Products": [
