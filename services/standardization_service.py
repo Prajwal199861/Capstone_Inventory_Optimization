@@ -64,12 +64,76 @@ class StandardizationService:
         """
         Same as load_standardized_dataset but also returns the
         cleaning warnings and skipped files for display in the UI.
+        Multiple files of the same entity are combined into one table.
 
         Returns:
 
             {
                 "dataset_name": str,
                 "frames": {entity_type: DataFrame},
+                "warnings": [str],
+                "skipped_files": [str]
+            }
+        """
+
+        report = StandardizationService.load_frames_per_file(
+            dataset_id
+        )
+
+        frames: dict[str, pd.DataFrame] = {}
+
+        warnings = report["warnings"]
+
+        for entity, entity_frames in report["frames_per_file"].items():
+
+            if len(entity_frames) > 1:
+
+                frames[entity] = pd.concat(
+
+                    entity_frames,
+
+                    ignore_index=True
+
+                )
+
+                warnings.append(
+
+                    f"{entity}: multiple files combined into "
+
+                    f"one standardized table."
+
+                )
+
+            else:
+
+                frames[entity] = entity_frames[0]
+
+        return {
+
+            "dataset_name": report["dataset_name"],
+
+            "frames": frames,
+
+            "warnings": warnings,
+
+            "skipped_files": report["skipped_files"]
+
+        }
+
+    @staticmethod
+    def load_frames_per_file(
+            dataset_id: int
+    ) -> dict:
+        """
+        Standardizes every mapped file WITHOUT combining files of the
+        same entity. Needed by services (e.g. sales merging) that must
+        join split files (orders + order lines) on a shared key.
+
+        Returns:
+
+            {
+                "dataset_name": str,
+                "frames_per_file": {entity_type: [DataFrame, ...]},
                 "warnings": [str],
                 "skipped_files": [str]
             }
@@ -97,7 +161,7 @@ class StandardizationService:
 
             files = file_repository.get_by_dataset_id(dataset_id)
 
-            frames: dict[str, pd.DataFrame] = {}
+            frames_per_file: dict[str, list[pd.DataFrame]] = {}
 
             warnings: list[str] = []
 
@@ -143,35 +207,16 @@ class StandardizationService:
 
                     continue
 
-                entity = file.entity_type
-
-                if entity in frames:
-
-                    frames[entity] = pd.concat(
-
-                        [frames[entity], frame],
-
-                        ignore_index=True
-
-                    )
-
-                    warnings.append(
-
-                        f"{entity}: multiple files combined into "
-
-                        f"one standardized table."
-
-                    )
-
-                else:
-
-                    frames[entity] = frame
+                frames_per_file.setdefault(
+                    file.entity_type,
+                    []
+                ).append(frame)
 
             return {
 
                 "dataset_name": dataset.dataset_name,
 
-                "frames": frames,
+                "frames_per_file": frames_per_file,
 
                 "warnings": warnings,
 
@@ -219,15 +264,18 @@ class StandardizationService:
 
             return None, warnings
 
-        rename_map = {}
+        # Built field-by-field (not via a rename dict) so that two
+        # business fields mapped to the same source column both
+        # materialize instead of the last one silently winning.
+        standardized = {}
 
         for mapping in mappings:
 
             if mapping.mapped_column in dataframe.columns:
 
-                rename_map[mapping.mapped_column] = (
+                standardized[mapping.business_field] = (
 
-                    mapping.business_field
+                    dataframe[mapping.mapped_column]
 
                 )
 
@@ -243,7 +291,7 @@ class StandardizationService:
 
                 )
 
-        if not rename_map:
+        if not standardized:
 
             warnings.append(
 
@@ -255,13 +303,7 @@ class StandardizationService:
 
             return None, warnings
 
-        dataframe = (
-
-            dataframe[list(rename_map.keys())]
-
-            .rename(columns=rename_map)
-
-        )
+        dataframe = pd.DataFrame(standardized)
 
         dataframe, clean_warnings = DataFrameCleaner.clean(
 

@@ -2,6 +2,7 @@ import streamlit as st
 from components.header import page_header
 from components.metric_card import metric_card
 from components.footer import page_footer
+from services.forecast_service import ForecastService
 
 def dashboard():
 
@@ -22,7 +23,7 @@ def dashboard():
         metric_card("Datasets", 0)
 
     with c3:
-        metric_card("Forecasts", 0)
+        metric_card("Forecasts", ForecastService.count_forecasts())
 
     with c4:
         metric_card("Alerts", 0)

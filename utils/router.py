@@ -10,6 +10,7 @@ from pages.dashboard import dashboard
 from pages.dataset_management import dataset_management
 from pages.dataset_details import dataset_details
 from pages.standardized_preview import standardized_preview
+from pages.forecast import forecast
 
 
 def route(page):
@@ -51,6 +52,8 @@ def route(page):
         "🏠 Dashboard": dashboard,
 
         "📂 Datasets": dataset_management,
+
+        "📈 Forecast": forecast,
 
     }
 

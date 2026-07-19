@@ -9,6 +9,8 @@ from database.engine import engine
 from models.dataset import Dataset
 from models.dataset_file import DatasetFile
 from models.column_mapping import ColumnMapping
+from models.forecast import Forecast
+from models.forecast_point import ForecastPoint
 
 # Import Models
 from models.role import Role

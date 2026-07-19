@@ -153,17 +153,18 @@ def standardized_preview():
 
             b.metric("Business Fields", len(frame.columns))
 
-            st.dataframe(
+            # st.table renders real DOM text (st.dataframe draws on a
+            # canvas), keeping the preview readable by UI tests and
+            # copy-paste friendly.
+            st.table(
 
-                frame.head(50),
-
-                use_container_width=True
+                frame.head(20)
 
             )
 
             st.caption(
 
-                "Showing first 50 rows. Datatypes: "
+                "Showing first 20 rows. Datatypes: "
 
                 + ", ".join(
 

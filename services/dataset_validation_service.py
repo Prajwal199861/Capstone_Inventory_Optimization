@@ -25,22 +25,36 @@ class DatasetValidationService:
             files = file_repository.get_by_dataset(
                 dataset_id
             )
-            dataset_ready = True
+            # Required fields are validated per ENTITY, against the
+            # union of mappings across that entity's files. Split
+            # transactional files (e.g. an order header file carrying
+            # the date and an order lines file carrying product and
+            # quantity) together satisfy the Sales requirements even
+            # though neither file does alone. Single-file entities
+            # behave exactly as before.
+            mapped_fields_by_entity: dict = {}
             for file in files:
+                mappings = mapping_repository.get_by_dataset_file(
+                    file.id
+                )
+                mapped_fields_by_entity.setdefault(
+                    file.entity_type,
+                    set()
+                ).update(
+                    mapping.business_field
+                    for mapping in mappings
+                )
+            dataset_ready = True
+            for entity_type, mapped_fields in (
+                    mapped_fields_by_entity.items()
+            ):
                 template = MetadataEngine.get_template(
-                    file.entity_type
+                    entity_type
                 )
                 required_fields = template.get(
                     "required",
                     {}
                 )
-                mappings = mapping_repository.get_by_dataset_file(
-                    file.id
-                )
-                mapped_fields = {
-                    mapping.business_field
-                    for mapping in mappings
-                }
                 missing = [
                     field
                     for field in required_fields

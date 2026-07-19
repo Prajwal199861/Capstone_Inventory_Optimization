@@ -28,27 +28,35 @@ class MetadataEngine:
                 "Product ID": [
                     "product_id",
                     "sku",
-                    "item_id"
+                    "item_id",
+                    "productkey",
+                    "product_key"
                 ],
                 "Quantity": [
                     "qty",
                     "quantity",
                     "units",
                     "sales_quantity"
-                ],
+                ]
+            },
+            "recommended": {
+                # Revenue is recommended (not required): datasets
+                # without a revenue column can still be forecast on
+                # Quantity, and Revenue can be derived from the
+                # Products selling price (Phase 2A DemandService).
                 "Revenue": [
                     "sales",
                     "revenue",
                     "amount",
                     "total",
                     "sales_amount"
-                ]
-            },
-            "recommended": {
+                ],
                 "Store ID": [
                     "store_id",
                     "branch_id",
-                    "store"
+                    "store",
+                    "storekey",
+                    "store_key"
                 ],
                 "Customer ID": [
                     "customer_id",
@@ -68,7 +76,13 @@ class MetadataEngine:
                 "Invoice Number": [
                     "invoice",
                     "invoice_no",
-                    "bill_no"
+                    "bill_no",
+                    "order_number",
+                    "order_id"
+                ],
+                "Order ID": [
+                    "order_id",
+                    "order_number"
                 ],
                 "Payment Mode": [
                     "payment",
@@ -83,7 +97,9 @@ class MetadataEngine:
             "required": {
                 "Product ID": [
                     "product_id",
-                    "sku"
+                    "sku",
+                    "productkey",
+                    "product_key"
                 ],
                 "Product Name": [
                     "product_name",
@@ -359,6 +375,32 @@ class MetadataEngine:
 
         },
 
+        "Exchange Rates": {
+
+            "required": {
+
+                "Date": [
+                    "date"
+                ],
+
+                "Currency": [
+                    "currency"
+                ],
+
+                "Rate": [
+                    "exchange",
+                    "rate",
+                    "exchange_rate"
+                ]
+
+            },
+
+            "recommended": {},
+
+            "optional": {}
+
+        },
+
         "Promotions": {
 
             "required": {
@@ -417,24 +459,56 @@ class MetadataEngine:
 
         suggestions = {}
 
+        used_columns = set()
+
         for section in ["required", "recommended", "optional"]:
 
             suggestions[section] = {}
 
             for business_field, keywords in template.get(section, {}).items():
 
-                suggestions[section][business_field] = None
+                # Exact keyword matches are preferred over substring
+                # matches, and columns not yet suggested for another
+                # field are preferred over already-used ones, so two
+                # fields do not silently claim the same column
+                # (e.g. ProductKey for both Product ID and Product Name).
+                exact = []
+
+                partial = []
 
                 for column in dataframe_columns:
 
                     column_lower = column.lower().replace(" ", "_")
 
-                    if any(
+                    if column_lower in keywords:
+
+                        exact.append(column)
+
+                    elif any(
                             keyword in column_lower
                             for keyword in keywords
                     ):
-                        suggestions[section][business_field] = column
-                        break
+                        partial.append(column)
+
+                candidates = exact + partial
+
+                suggestion = next(
+
+                    (
+                        column
+                        for column in candidates
+                        if column not in used_columns
+                    ),
+
+                    candidates[0] if candidates else None
+
+                )
+
+                suggestions[section][business_field] = suggestion
+
+                if suggestion is not None:
+
+                    used_columns.add(suggestion)
 
         return suggestions
 

@@ -13,7 +13,8 @@ class EntityDetector:
             "sales",
             "sale",
             "transaction",
-            "invoice"
+            "invoice",
+            "order"
         ],
 
         "Products": [
@@ -57,6 +58,12 @@ class EntityDetector:
         "Suppliers": [
             "supplier",
             "vendor"
+        ],
+
+        "Exchange Rates": [
+            "exchange",
+            "rate",
+            "currency"
         ]
 
     }
