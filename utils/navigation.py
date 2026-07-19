@@ -22,7 +22,9 @@ def sidebar():
 
             "",
 
-            [
+            key="navigation",
+
+            options=[
 
                 "🏠 Dashboard",
 

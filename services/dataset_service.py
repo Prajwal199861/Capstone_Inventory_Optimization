@@ -50,6 +50,19 @@ class DatasetService:
             session.close()
 
     @staticmethod
+    def count_datasets() -> int:
+
+        session = SessionLocal()
+
+        try:
+
+            return DatasetRepository(session).count_all()
+
+        finally:
+
+            session.close()
+
+    @staticmethod
     def get_user_datasets(
             user_id: int
     ):
