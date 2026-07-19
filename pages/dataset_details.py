@@ -48,6 +48,18 @@ def dataset_details():
 
             st.rerun()
 
+    # Shown on the rerun AFTER a mapping save, so the confirmation
+    # survives st.rerun() instead of flashing for one frame.
+    saved_for = st.session_state.pop("mapping_saved_for", None)
+
+    if saved_for:
+
+        st.success(
+
+            f"Column mapping saved successfully for {saved_for}."
+
+        )
+
     dataset_id = st.session_state.selected_dataset_id
 
     files = DatasetFileService.get_dataset_files(
@@ -232,9 +244,9 @@ def dataset_details():
                             dataset_id
                         )
 
-                        st.success(
+                        st.session_state.mapping_saved_for = (
 
-                            "Column mapping saved successfully."
+                            file.original_filename
 
                         )
 
