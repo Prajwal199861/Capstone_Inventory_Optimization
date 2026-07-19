@@ -150,7 +150,9 @@ def test_rmse_computation():
 
 def test_backtest_scores_every_model():
 
-    metrics = ForecastService._backtest(seasonal_series(), "Daily")
+    backtest = ForecastService._backtest(seasonal_series(), "Daily")
+
+    metrics = backtest["metrics"]
 
     assert set(metrics) == set(MODEL_REGISTRY)
 
@@ -158,10 +160,17 @@ def test_backtest_scores_every_model():
 
         assert score["rmse"] >= 0
 
+    # Predictions for the comparison view cover the holdout window
+    assert set(backtest["predictions"]) == set(MODEL_REGISTRY)
+
+    assert len(backtest["index"]) == len(backtest["actual"])
+
 
 def test_auto_picks_seasonal_model_on_seasonal_series():
 
-    metrics = ForecastService._backtest(seasonal_series(), "Daily")
+    metrics = ForecastService._backtest(
+        seasonal_series(), "Daily"
+    )["metrics"]
 
     chosen = ForecastService._choose_model("Auto", metrics)
 
@@ -172,7 +181,9 @@ def test_auto_picks_seasonal_model_on_seasonal_series():
 
 def test_explicit_model_respected():
 
-    metrics = ForecastService._backtest(flat_series(), "Daily")
+    metrics = ForecastService._backtest(
+        flat_series(), "Daily"
+    )["metrics"]
 
     assert ForecastService._choose_model(
         "Moving Average", metrics

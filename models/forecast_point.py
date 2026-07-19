@@ -13,7 +13,7 @@ run (Milestone 3 Phase 2B).
 
 from datetime import datetime
 
-from sqlalchemy import DateTime, Float, ForeignKey, Integer
+from sqlalchemy import DateTime, Float, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from database.base import Base
@@ -32,6 +32,12 @@ class ForecastPoint(Base):
     forecast_id: Mapped[int] = mapped_column(
         ForeignKey("forecasts.id"),
         nullable=False
+    )
+
+    # Set only for batch (per-product) forecast runs.
+    product_id: Mapped[str | None] = mapped_column(
+        String(200),
+        nullable=True
     )
 
     period_date: Mapped[datetime] = mapped_column(

@@ -13,6 +13,8 @@ Forecast Engine will consume. No business logic lives here.
 =============================================================================
 """
 
+import json
+
 import plotly.graph_objects as go
 import streamlit as st
 
@@ -95,19 +97,44 @@ def _demand_controls(dataset_id: int):
 
     options = DemandService.get_filter_options(dataset_id)
 
+    # Scope choices adapt to what the dataset actually contains.
+    scopes = ["Overall"]
+
+    if options["products"]:
+
+        scopes.append("By Product")
+
+    if options["stores"]:
+
+        scopes.append("By Store")
+
+    if options["categories"]:
+
+        scopes.append("By Category")
+
     product_id = None
 
     store_id = None
 
     category = None
 
-    f1, f2, f3 = st.columns(3)
+    s1, s2 = st.columns([1, 2])
 
-    if options["products"]:
+    with s1:
 
-        with f1:
+        scope = st.selectbox(
 
-            labels = {ALL_OPTION: ALL_OPTION}
+            "Forecast Scope",
+
+            scopes
+
+        )
+
+    with s2:
+
+        if scope == "By Product":
+
+            labels = {}
 
             for value, name in options["products"]:
 
@@ -121,47 +148,35 @@ def _demand_controls(dataset_id: int):
 
             )
 
-            if selected != ALL_OPTION:
+            product_id = labels[selected]
 
-                product_id = labels[selected]
+        elif scope == "By Store":
 
-    if options["stores"]:
-
-        with f2:
-
-            selected = st.selectbox(
+            store_id = st.selectbox(
 
                 "Store",
 
-                [ALL_OPTION] + options["stores"]
+                options["stores"]
 
             )
 
-            if selected != ALL_OPTION:
+        elif scope == "By Category":
 
-                store_id = selected
-
-    if options["categories"]:
-
-        with f3:
-
-            selected = st.selectbox(
+            category = st.selectbox(
 
                 "Category",
 
-                [ALL_OPTION] + options["categories"]
+                options["categories"]
 
             )
-
-            if selected != ALL_OPTION:
-
-                category = selected
 
     return {
 
         "granularity": granularity,
 
         "measure": measure,
+
+        "scope": scope,
 
         "product_id": product_id,
 
@@ -392,7 +407,9 @@ def _forecast_section(dataset_id: int, controls: dict, history):
 
                     store_id=controls["store_id"],
 
-                    category=controls["category"]
+                    category=controls["category"],
+
+                    scope=controls["scope"]
 
                 )
 
@@ -492,9 +509,111 @@ def _forecast_section(dataset_id: int, controls: dict, history):
 
         )
 
+        backtest = result.get("backtest")
+
+        if backtest is not None:
+
+            st.caption(
+
+                "Backtest holdout window: every candidate model's "
+
+                "prediction against what actually happened — this is "
+
+                "why Auto chose its model."
+
+            )
+
+            figure = go.Figure()
+
+            figure.add_trace(
+
+                go.Scatter(
+
+                    x=backtest["index"],
+
+                    y=backtest["actual"],
+
+                    mode="lines+markers",
+
+                    name="Actual",
+
+                    line=dict(color="#1565C0", width=3)
+
+                )
+
+            )
+
+            for model_name, predicted in (
+                    backtest["predictions"].items()
+            ):
+
+                figure.add_trace(
+
+                    go.Scatter(
+
+                        x=backtest["index"],
+
+                        y=predicted,
+
+                        mode="lines",
+
+                        name=model_name,
+
+                        line=dict(dash="dot")
+
+                    )
+
+                )
+
+            figure.update_layout(
+
+                margin=dict(l=10, r=10, t=30, b=10),
+
+                height=320
+
+            )
+
+            st.plotly_chart(
+
+                figure,
+
+                use_container_width=True
+
+            )
+
     for note in result["notes"]:
 
         st.caption(f"ℹ {note}")
+
+
+def _run_scope(run) -> str:
+    """Human-readable scope of a saved run, from its filters JSON."""
+
+    try:
+
+        filters = json.loads(run.filters or "{}")
+
+    except ValueError:
+
+        filters = {}
+
+    if filters.get("scope") == ForecastService.BATCH_SCOPE:
+
+        return "Batch (all products)"
+
+    if filters.get("product_id"):
+
+        return f"Product {filters['product_id']}"
+
+    if filters.get("store_id"):
+
+        return f"Store {filters['store_id']}"
+
+    if filters.get("category"):
+
+        return f"Category {filters['category']}"
+
+    return "Overall"
 
 
 def _past_forecasts(dataset_id: int):
@@ -523,6 +642,8 @@ def _past_forecasts(dataset_id: int):
                         "%Y-%m-%d %H:%M"
                     ),
 
+                    "Scope": _run_scope(run),
+
                     "Measure": run.measure,
 
                     "Granularity": run.granularity,
@@ -549,9 +670,7 @@ def _past_forecasts(dataset_id: int):
 
                         else None
 
-                    ),
-
-                    "Filters": run.filters or "{}"
+                    )
 
                 }
 
@@ -562,6 +681,145 @@ def _past_forecasts(dataset_id: int):
             use_container_width=True
 
         )
+
+
+def _batch_section(dataset_id: int, controls: dict):
+    """Forecast-all-products batch run with CSV export (Phase 3
+    inventory optimization consumes the persisted output)."""
+
+    st.divider()
+
+    st.subheader("Batch Forecast — All Products")
+
+    st.caption(
+
+        "Forecasts every product with sufficient history using Auto "
+
+        "model selection. The saved run feeds inventory optimization."
+
+    )
+
+    b1, b2 = st.columns([1, 3])
+
+    with b1:
+
+        run_batch = st.button(
+
+            "📦 Forecast All Products",
+
+            use_container_width=True
+
+        )
+
+    if run_batch:
+
+        presets = HORIZON_PRESETS[controls["granularity"]]
+
+        horizon = list(presets.values())[0]
+
+        with st.status(
+
+                "Running batch forecast...",
+
+                expanded=False
+
+        ) as status:
+
+            def report(done, total, product_id):
+
+                if done % 10 == 0 or done == total:
+
+                    status.update(
+
+                        label=f"Forecasting product {done}/{total}"
+
+                    )
+
+            try:
+
+                batch = ForecastService.generate_batch(
+
+                    dataset_id,
+
+                    horizon_periods=horizon,
+
+                    granularity=controls["granularity"],
+
+                    measure="Quantity",
+
+                    created_by=st.session_state.user_id,
+
+                    progress_callback=report
+
+                )
+
+                status.update(
+
+                    label="Batch forecast complete",
+
+                    state="complete"
+
+                )
+
+                st.session_state.last_batch = batch
+
+            except ValueError as error:
+
+                status.update(
+
+                    label="Batch forecast failed",
+
+                    state="error"
+
+                )
+
+                st.warning(str(error))
+
+                st.session_state.pop("last_batch", None)
+
+    batch = st.session_state.get("last_batch")
+
+    if not batch:
+
+        return
+
+    c1, c2, c3 = st.columns(3)
+
+    c1.metric("Products Forecast", batch["forecasted"])
+
+    c2.metric("Skipped", batch["skipped"])
+
+    c3.metric(
+
+        "Total Forecast Demand",
+
+        f"{batch['summary']['Total Forecast'].sum():,.0f}"
+
+    )
+
+    st.dataframe(
+
+        batch["summary"],
+
+        use_container_width=True
+
+    )
+
+    st.download_button(
+
+        "⬇ Download Summary (CSV)",
+
+        batch["summary"].to_csv(index=False).encode("utf-8"),
+
+        file_name=f"batch_forecast_dataset_{dataset_id}.csv",
+
+        mime="text/csv"
+
+    )
+
+    for note in batch["notes"]:
+
+        st.caption(f"ℹ {note}")
 
 
 def forecast():
@@ -616,7 +874,15 @@ def forecast():
 
             dataset_id,
 
-            **controls
+            granularity=controls["granularity"],
+
+            measure=controls["measure"],
+
+            product_id=controls["product_id"],
+
+            store_id=controls["store_id"],
+
+            category=controls["category"]
 
         )
 
@@ -681,6 +947,8 @@ def forecast():
         st.caption(f"ℹ {note}")
 
     _forecast_section(dataset_id, controls, series)
+
+    _batch_section(dataset_id, controls)
 
     _past_forecasts(dataset_id)
 

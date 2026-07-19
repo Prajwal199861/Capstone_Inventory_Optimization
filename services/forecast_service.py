@@ -66,7 +66,8 @@ class ForecastService:
             created_by: int | None = None,
             product_id: str | None = None,
             store_id: str | None = None,
-            category: str | None = None
+            category: str | None = None,
+            scope: str | None = None
     ) -> dict:
         """
         Build the demand series, backtest all models, forecast with
@@ -77,6 +78,7 @@ class ForecastService:
                 "history": DataFrame (the demand series),
                 "model_name": str,
                 "metrics": {model: {"mape": float|None, "rmse": float}},
+                "backtest": {"index", "actual", "predictions"},
                 "notes": [str],
                 "forecast_id": int
             }
@@ -108,10 +110,12 @@ class ForecastService:
             horizon_periods
         )
 
-        metrics = ForecastService._backtest(
+        backtest = ForecastService._backtest(
             history,
             granularity
         )
+
+        metrics = backtest["metrics"]
 
         model_name = ForecastService._choose_model(
             model,
@@ -205,6 +209,8 @@ class ForecastService:
 
             filters={
 
+                "scope": scope,
+
                 "product_id": product_id,
 
                 "store_id": store_id,
@@ -213,7 +219,23 @@ class ForecastService:
 
             },
 
-            forecast_frame=forecast_frame
+            points=[
+
+                ForecastPoint(
+
+                    period_date=period.to_pydatetime(),
+
+                    value=float(row["Forecast"]),
+
+                    lower=float(row["Lower"]),
+
+                    upper=float(row["Upper"])
+
+                )
+
+                for period, row in forecast_frame.iterrows()
+
+            ]
 
         )
 
@@ -227,11 +249,262 @@ class ForecastService:
 
             "metrics": metrics,
 
+            "backtest": {
+
+                "index": backtest["index"],
+
+                "actual": backtest["actual"],
+
+                "predictions": backtest["predictions"]
+
+            },
+
             "notes": notes,
 
             "forecast_id": forecast_id
 
         }
+
+    BATCH_SCOPE = "Batch"
+
+    @staticmethod
+    def generate_batch(
+            dataset_id: int,
+            horizon_periods: int,
+            granularity: str = "Monthly",
+            measure: str = "Quantity",
+            created_by: int | None = None,
+            progress_callback=None
+    ) -> dict:
+        """
+        Forecast every product with sufficient history (Auto model
+        per product) and persist ONE batch run whose points carry
+        product_id. Phase 3 inventory optimization consumes this.
+
+        Returns:
+
+            {
+                "summary": DataFrame [Product ID, Product Name,
+                           Total Forecast, Model, MAPE (%), Status],
+                "forecast_id": int | None,
+                "forecasted": int,
+                "skipped": int,
+                "notes": [str]
+            }
+
+        Products with too little history are skipped with a reason;
+        one bad product never fails the batch.
+        """
+
+        product_data = DemandService.build_product_series_map(
+
+            dataset_id,
+
+            granularity=granularity,
+
+            measure=measure
+
+        )
+
+        summary_rows, points = ForecastService._batch_from_series_map(
+
+            product_data["series_map"],
+
+            product_data["names"],
+
+            horizon_periods,
+
+            granularity,
+
+            progress_callback=progress_callback
+
+        )
+
+        forecast_id = None
+
+        forecasted = sum(
+
+            1 for row in summary_rows if row["Status"] == "Forecast"
+
+        )
+
+        if points:
+
+            forecast_id = ForecastService._persist(
+
+                dataset_id=dataset_id,
+
+                created_by=created_by or 0,
+
+                measure=measure,
+
+                granularity=granularity,
+
+                horizon=horizon_periods,
+
+                model_name="Auto (per product)",
+
+                metrics={},
+
+                filters={"scope": ForecastService.BATCH_SCOPE},
+
+                points=points
+
+            )
+
+        return {
+
+            "summary": pd.DataFrame(summary_rows),
+
+            "forecast_id": forecast_id,
+
+            "forecasted": forecasted,
+
+            "skipped": len(summary_rows) - forecasted,
+
+            "notes": product_data["notes"]
+
+        }
+
+    @staticmethod
+    def _batch_from_series_map(
+            series_map: dict,
+            names: dict,
+            horizon: int,
+            granularity: str,
+            progress_callback=None
+    ):
+        """
+        Pure batch core: per product, guardrail-check, backtest,
+        forecast with the best model. Returns (summary_rows, points).
+        """
+
+        summary_rows = []
+
+        points = []
+
+        total = len(series_map)
+
+        for position, (product_id, series) in enumerate(
+                series_map.items()
+        ):
+
+            if progress_callback:
+
+                progress_callback(position + 1, total, product_id)
+
+            name = names.get(product_id, product_id)
+
+            try:
+
+                ForecastService._require_history(
+                    series,
+                    granularity,
+                    horizon
+                )
+
+                backtest = ForecastService._backtest(
+                    series,
+                    granularity
+                )
+
+                model_name = ForecastService._choose_model(
+                    ForecastService.AUTO_MODEL,
+                    backtest["metrics"]
+                )
+
+                values = run_model(
+                    model_name,
+                    series,
+                    horizon,
+                    granularity
+                )
+
+                lower, upper = ForecastService._confidence_bounds(
+
+                    values,
+
+                    backtest["metrics"][model_name]["rmse"]
+
+                )
+
+                index = ForecastService._future_index(
+
+                    series.index.max(),
+
+                    horizon,
+
+                    granularity
+
+                )
+
+                points.extend(
+
+                    ForecastPoint(
+
+                        product_id=str(product_id),
+
+                        period_date=period.to_pydatetime(),
+
+                        value=float(value),
+
+                        lower=float(low),
+
+                        upper=float(high)
+
+                    )
+
+                    for period, value, low, high in zip(
+                        index, values, lower, upper
+                    )
+
+                )
+
+                mape = backtest["metrics"][model_name]["mape"]
+
+                summary_rows.append({
+
+                    "Product ID": product_id,
+
+                    "Product Name": name,
+
+                    "Total Forecast": round(float(values.sum()), 2),
+
+                    "Model": model_name,
+
+                    "MAPE (%)": (
+
+                        round(mape, 1)
+
+                        if mape is not None
+
+                        else None
+
+                    ),
+
+                    "Status": "Forecast"
+
+                })
+
+            except ValueError as error:
+
+                summary_rows.append({
+
+                    "Product ID": product_id,
+
+                    "Product Name": name,
+
+                    "Total Forecast": None,
+
+                    "Model": None,
+
+                    "MAPE (%)": None,
+
+                    "Status": f"Skipped: {error}"
+
+                })
+
+        return summary_rows, points
 
     @staticmethod
     def list_forecasts(
@@ -302,7 +575,21 @@ class ForecastService:
             history: pd.Series,
             granularity: str
     ) -> dict:
-        """Score every model on a holdout window: MAPE and RMSE."""
+        """
+        Score every model on a holdout window.
+
+        Returns:
+
+            {
+                "metrics": {model: {"mape", "rmse"}},
+                "index": holdout period index,
+                "actual": holdout actual values,
+                "predictions": {model: predicted values}
+            }
+
+        Predictions are kept so the UI can show WHY the Auto
+        selection chose its model.
+        """
 
         holdout = max(
 
@@ -318,6 +605,8 @@ class ForecastService:
 
         metrics = {}
 
+        predictions = {}
+
         for model_name in MODEL_REGISTRY:
 
             predicted = run_model(
@@ -332,6 +621,8 @@ class ForecastService:
 
             )
 
+            predictions[model_name] = predicted
+
             metrics[model_name] = {
 
                 "mape": ForecastService._mape(actual, predicted),
@@ -340,7 +631,17 @@ class ForecastService:
 
             }
 
-        return metrics
+        return {
+
+            "metrics": metrics,
+
+            "index": history.index[-holdout:],
+
+            "actual": actual,
+
+            "predictions": predictions
+
+        }
 
     @staticmethod
     def _mape(
@@ -474,7 +775,7 @@ class ForecastService:
             model_name: str,
             metrics: dict,
             filters: dict,
-            forecast_frame: pd.DataFrame
+            points: list
     ) -> int:
 
         session = SessionLocal()
@@ -507,9 +808,9 @@ class ForecastService:
 
                 model_name=model_name,
 
-                mape=metrics["mape"],
+                mape=metrics.get("mape"),
 
-                rmse=metrics["rmse"],
+                rmse=metrics.get("rmse"),
 
                 filters=json.dumps(active_filters)
 
@@ -517,23 +818,7 @@ class ForecastService:
 
             repository.create(forecast)
 
-            forecast.points = [
-
-                ForecastPoint(
-
-                    period_date=period.to_pydatetime(),
-
-                    value=float(row["Forecast"]),
-
-                    lower=float(row["Lower"]),
-
-                    upper=float(row["Upper"])
-
-                )
-
-                for period, row in forecast_frame.iterrows()
-
-            ]
+            forecast.points = points
 
             session.commit()
 

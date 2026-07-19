@@ -156,6 +156,190 @@ class DemandService:
         }
 
     @staticmethod
+    def build_product_series_map(
+            dataset_id: int,
+            granularity: str = "Monthly",
+            measure: str = "Quantity"
+    ) -> dict:
+        """
+        One aligned demand series per product, loading the dataset
+        only once (batch forecasting calls this instead of calling
+        build_demand_series per product).
+
+        Returns:
+
+            {
+                "series_map": {product_id: Series},
+                "names": {product_id: product name},
+                "notes": [str],
+                "measure": str,
+                "granularity": str
+            }
+
+        Every series spans the same global period range (gaps = 0)
+        so downstream consumers can align products.
+        """
+
+        if granularity not in DemandService.GRANULARITY_FREQUENCIES:
+
+            raise ValueError(
+                f"Unsupported granularity: {granularity}"
+            )
+
+        sales, products, notes = DemandService._load_sales(dataset_id)
+
+        if "Product ID" not in sales.columns:
+
+            raise ValueError(
+                "Sales data has no 'Product ID' mapped."
+            )
+
+        if measure == "Revenue":
+
+            sales, revenue_notes = DemandService._ensure_revenue(
+                sales,
+                products
+            )
+
+            notes.extend(revenue_notes)
+
+        if "Transaction Date" not in sales.columns:
+
+            raise ValueError(
+                "Sales data has no 'Transaction Date' mapped."
+            )
+
+        dates = pd.to_datetime(
+            sales["Transaction Date"],
+            errors="coerce"
+        )
+
+        null_dates = int(dates.isna().sum())
+
+        if null_dates:
+
+            notes.append(
+
+                f"{null_dates} sales row(s) with missing/invalid "
+
+                f"dates were excluded."
+
+            )
+
+        valid = dates.notna() & sales["Product ID"].notna()
+
+        if not valid.any():
+
+            raise ValueError(
+                "No sales rows with a valid transaction date remain."
+            )
+
+        frequency = DemandService.GRANULARITY_FREQUENCIES[granularity]
+
+        frame = pd.DataFrame({
+
+            "period": dates[valid],
+
+            "product": sales.loc[valid, "Product ID"],
+
+            measure: pd.to_numeric(
+
+                sales.loc[valid, measure],
+
+                errors="coerce"
+
+            ).fillna(0)
+
+        })
+
+        resample_options = (
+
+            {"label": "left", "closed": "left"}
+
+            if granularity == "Weekly"
+
+            else {}
+
+        )
+
+        pivot = (
+
+            frame
+
+            .set_index("period")
+
+            .groupby("product")[measure]
+
+            .resample(frequency, **resample_options)
+
+            .sum()
+
+            .unstack(level="product")
+
+        )
+
+        # Align every product to the same continuous global range.
+        full_range = pd.date_range(
+
+            pivot.index.min(),
+
+            pivot.index.max(),
+
+            freq=frequency
+
+        )
+
+        pivot = pivot.reindex(full_range).fillna(0)
+
+        names = {}
+
+        if (
+
+                products is not None
+
+                and "Product ID" in products.columns
+
+                and "Product Name" in products.columns
+
+        ):
+
+            names = (
+
+                products
+
+                .dropna(subset=["Product ID"])
+
+                .drop_duplicates(subset=["Product ID"])
+
+                .set_index("Product ID")["Product Name"]
+
+                .to_dict()
+
+            )
+
+        series_map = {
+
+            str(product): pivot[product]
+
+            for product in pivot.columns
+
+        }
+
+        return {
+
+            "series_map": series_map,
+
+            "names": names,
+
+            "notes": notes,
+
+            "measure": measure,
+
+            "granularity": granularity
+
+        }
+
+    @staticmethod
     def get_filter_options(
             dataset_id: int
     ) -> dict:
