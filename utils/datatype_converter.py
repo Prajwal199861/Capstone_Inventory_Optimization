@@ -39,7 +39,9 @@ class DatatypeConverter:
 
         "Maximum Stock",
 
-        "Age"
+        "Age",
+
+        "Rate"
 
     }
 

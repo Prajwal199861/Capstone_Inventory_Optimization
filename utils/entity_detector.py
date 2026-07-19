@@ -58,6 +58,12 @@ class EntityDetector:
         "Suppliers": [
             "supplier",
             "vendor"
+        ],
+
+        "Exchange Rates": [
+            "exchange",
+            "rate",
+            "currency"
         ]
 
     }

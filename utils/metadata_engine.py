@@ -375,6 +375,32 @@ class MetadataEngine:
 
         },
 
+        "Exchange Rates": {
+
+            "required": {
+
+                "Date": [
+                    "date"
+                ],
+
+                "Currency": [
+                    "currency"
+                ],
+
+                "Rate": [
+                    "exchange",
+                    "rate",
+                    "exchange_rate"
+                ]
+
+            },
+
+            "recommended": {},
+
+            "optional": {}
+
+        },
+
         "Promotions": {
 
             "required": {

@@ -187,7 +187,7 @@ def _demand_controls(dataset_id: int):
     }
 
 
-def _history_chart(series, measure: str):
+def _history_chart(series, measure: str, holiday_dates=None):
 
     figure = go.Figure()
 
@@ -208,6 +208,38 @@ def _history_chart(series, measure: str):
         )
 
     )
+
+    if holiday_dates:
+
+        holidays = series[series.index.isin(holiday_dates)]
+
+        if not holidays.empty:
+
+            figure.add_trace(
+
+                go.Scatter(
+
+                    x=holidays.index,
+
+                    y=holidays[measure],
+
+                    mode="markers",
+
+                    name="Holiday / Festival",
+
+                    marker=dict(
+
+                        color="#E53935",
+
+                        size=9,
+
+                        symbol="diamond"
+
+                    )
+
+                )
+
+            )
 
     figure.update_layout(
 
@@ -271,7 +303,7 @@ def _forecast_chart(history, forecast_frame, measure: str):
 
             fillcolor="rgba(38, 166, 154, 0.2)",
 
-            name="95% Confidence"
+            name="95% Confidence (widens with horizon)"
 
         )
 
@@ -940,11 +972,35 @@ def forecast():
 
     )
 
-    _history_chart(series, measure)
+    holiday_dates = DemandService.get_holiday_periods(dataset_id)
+
+    _history_chart(
+
+        series,
+
+        measure,
+
+        holiday_dates if controls["granularity"] == "Daily" else None
+
+    )
 
     for note in result["notes"]:
 
         st.caption(f"ℹ {note}")
+
+    if holiday_dates and controls["granularity"] == "Daily":
+
+        effect = DemandService.holiday_effect_note(
+
+            series[measure],
+
+            holiday_dates
+
+        )
+
+        if effect:
+
+            st.caption(f"🎉 {effect}")
 
     _forecast_section(dataset_id, controls, series)
 

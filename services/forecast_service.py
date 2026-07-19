@@ -730,9 +730,15 @@ class ForecastService:
             values: np.ndarray,
             rmse: float
     ):
-        """~95% bounds from the backtest error; demand floors at 0."""
+        """
+        ~95% bounds from the backtest error. Uncertainty compounds
+        with distance, so the margin widens with the forecast step
+        (std * sqrt(step)); demand floors at 0.
+        """
 
-        margin = 1.96 * rmse
+        steps = np.arange(1, len(values) + 1, dtype=float)
+
+        margin = 1.96 * rmse * np.sqrt(steps)
 
         lower = np.clip(values - margin, 0, None)
 

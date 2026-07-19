@@ -222,15 +222,18 @@ def test_short_history_rejected():
         assert "Not enough history" in str(error)
 
 
-def test_confidence_bounds_floor_at_zero():
+def test_confidence_bounds_floor_at_zero_and_widen():
 
     lower, upper = ForecastService._confidence_bounds(
-        np.array([10.0, 100.0]), rmse=20.0
+        np.array([10.0, 100.0, 100.0]), rmse=20.0
     )
 
     assert lower[0] == 0.0
 
-    assert abs(upper[1] - 139.2) < 1e-9
+    # Margins widen with the step: 1.96*20*sqrt(2) then sqrt(3)
+    assert abs(upper[1] - (100 + 1.96 * 20 * np.sqrt(2))) < 1e-9
+
+    assert (upper[2] - 100) > (upper[1] - 100)
 
 
 def test_future_index_continues_after_history():
