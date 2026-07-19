@@ -15,9 +15,12 @@ confidence bounds, and persistence of every run.
 """
 
 import json
+from datetime import datetime
 
 import numpy as np
 import pandas as pd
+
+from config import EXPORTS_DIR
 
 from database.session import SessionLocal
 
@@ -352,15 +355,35 @@ class ForecastService:
 
             )
 
+        summary = pd.DataFrame(summary_rows)
+
+        export_path = None
+
+        if not summary.empty:
+
+            EXPORTS_DIR.mkdir(parents=True, exist_ok=True)
+
+            export_path = EXPORTS_DIR / (
+
+                f"batch_forecast_dataset_{dataset_id}_"
+
+                f"{datetime.now():%Y%m%d_%H%M%S}.csv"
+
+            )
+
+            summary.to_csv(export_path, index=False)
+
         return {
 
-            "summary": pd.DataFrame(summary_rows),
+            "summary": summary,
 
             "forecast_id": forecast_id,
 
             "forecasted": forecasted,
 
             "skipped": len(summary_rows) - forecasted,
+
+            "export_path": str(export_path) if export_path else None,
 
             "notes": product_data["notes"]
 

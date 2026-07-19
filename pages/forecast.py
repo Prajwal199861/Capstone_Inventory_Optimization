@@ -366,8 +366,22 @@ def _forecast_chart(history, forecast_frame, measure: str):
     )
 
 
-def _forecast_section(dataset_id: int, controls: dict, history):
-    """Forecast generation controls, chart, metrics and history."""
+def _series_params(dataset_id: int, controls: dict) -> dict:
+    """Identity of the currently selected series. Stored results are
+    only rendered while they still match, so switching dataset or
+    scope never shows a stale forecast."""
+
+    return {
+
+        "dataset_id": dataset_id,
+
+        **controls
+
+    }
+
+
+def _forecast_section(dataset_id: int, controls: dict):
+    """Forecast generation controls, chart and metrics."""
 
     st.divider()
 
@@ -445,7 +459,13 @@ def _forecast_section(dataset_id: int, controls: dict, history):
 
                 )
 
-            st.session_state.last_forecast = result
+            st.session_state.last_forecast = {
+
+                "params": _series_params(dataset_id, controls),
+
+                "result": result
+
+            }
 
         except ValueError as error:
 
@@ -453,11 +473,19 @@ def _forecast_section(dataset_id: int, controls: dict, history):
 
             st.session_state.pop("last_forecast", None)
 
-    result = st.session_state.get("last_forecast")
+    stored = st.session_state.get("last_forecast")
 
-    if not result:
+    if (
+
+            not stored
+
+            or stored["params"] != _series_params(dataset_id, controls)
+
+    ):
 
         return
+
+    result = stored["result"]
 
     measure = result["history"].columns[0]
 
@@ -793,7 +821,13 @@ def _batch_section(dataset_id: int, controls: dict):
 
                 )
 
-                st.session_state.last_batch = batch
+                st.session_state.last_batch = {
+
+                    "dataset_id": dataset_id,
+
+                    "batch": batch
+
+                }
 
             except ValueError as error:
 
@@ -809,11 +843,13 @@ def _batch_section(dataset_id: int, controls: dict):
 
                 st.session_state.pop("last_batch", None)
 
-    batch = st.session_state.get("last_batch")
+    stored = st.session_state.get("last_batch")
 
-    if not batch:
+    if not stored or stored["dataset_id"] != dataset_id:
 
         return
+
+    batch = stored["batch"]
 
     c1, c2, c3 = st.columns(3)
 
@@ -848,6 +884,10 @@ def _batch_section(dataset_id: int, controls: dict):
         mime="text/csv"
 
     )
+
+    if batch.get("export_path"):
+
+        st.caption(f"💾 Summary saved to {batch['export_path']}")
 
     for note in batch["notes"]:
 
@@ -1002,7 +1042,7 @@ def forecast():
 
             st.caption(f"🎉 {effect}")
 
-    _forecast_section(dataset_id, controls, series)
+    _forecast_section(dataset_id, controls)
 
     _batch_section(dataset_id, controls)
 
