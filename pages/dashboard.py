@@ -2,7 +2,41 @@ import streamlit as st
 from components.header import page_header
 from components.metric_card import metric_card
 from components.footer import page_footer
+from services.dataset_service import DatasetService
+from services.demand_service import DemandService
 from services.forecast_service import ForecastService
+
+
+@st.cache_data(ttl=300, show_spinner=False)
+def _count_products(ready_dataset_ids: tuple) -> int:
+    """Distinct products across READY datasets (cached: loads files)."""
+
+    product_ids = set()
+
+    for dataset_id in ready_dataset_ids:
+
+        try:
+
+            options = DemandService.get_filter_options(dataset_id)
+
+            product_ids.update(
+                str(product_id)
+                for product_id, _ in options["products"]
+            )
+
+        except Exception:
+
+            continue
+
+    return len(product_ids)
+
+
+def _navigate_to(page: str):
+
+    st.session_state.pop("current_page", None)
+
+    st.session_state.navigation = page
+
 
 def dashboard():
 
@@ -14,13 +48,21 @@ def dashboard():
 
     )
 
+    ready_ids = tuple(
+
+        dataset.id
+
+        for dataset in DemandService.get_ready_datasets()
+
+    )
+
     c1,c2,c3,c4 = st.columns(4)
 
     with c1:
-        metric_card("Products", 0)
+        metric_card("Products", _count_products(ready_ids))
 
     with c2:
-        metric_card("Datasets", 0)
+        metric_card("Datasets", DatasetService.count_datasets())
 
     with c3:
         metric_card("Forecasts", ForecastService.count_forecasts())
@@ -37,23 +79,30 @@ def dashboard():
     with a:
         st.button(
             "Upload Dataset",
-            use_container_width=True
+            use_container_width=True,
+            on_click=_navigate_to,
+            args=("📂 Datasets",)
         )
 
     with b:
         st.button(
             "Generate Forecast",
-            use_container_width=True
+            use_container_width=True,
+            on_click=_navigate_to,
+            args=("📈 Forecast",)
         )
 
     with c:
         st.button(
             "Inventory Report",
-            use_container_width=True
+            use_container_width=True,
+            on_click=_navigate_to,
+            args=("📑 Reports",)
         )
 
     st.info(
-        "Milestone 2 will begin with Dataset Management."
+        "Milestone 3: demand forecasting is live — upload a dataset, "
+        "complete its column mapping, then generate forecasts."
     )
 
     page_footer()

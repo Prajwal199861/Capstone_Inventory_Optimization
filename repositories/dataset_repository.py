@@ -89,6 +89,18 @@ class DatasetRepository:
 
         )
 
+    def count_all(self):
+
+        return (
+
+            self.session
+
+            .query(Dataset)
+
+            .count()
+
+        )
+
     def get_all(self):
 
         return (
