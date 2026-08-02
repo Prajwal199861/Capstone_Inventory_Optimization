@@ -155,6 +155,90 @@ def test_store_or_default_handles_blank_and_missing():
     assert InventoryService._store_or_default("S1") == "S1"
 
 
+def test_iter_inventory_rows_none_falls_back_to_forecast_products():
+
+    # No Inventory data at all: every forecasted product still gets a
+    # row, with current_stock=None so ReorderService assumes it.
+    demand_map = {"P1": {}, "P2": {}}
+
+    rows = InventoryService._iter_inventory_rows(None, demand_map)
+
+    assert {row["product_id"] for row in rows} == {"P1", "P2"}
+
+    assert all(row["current_stock"] is None for row in rows)
+
+    assert all(row["store_id"] == "All Stores" for row in rows)
+
+
+def test_iter_inventory_rows_missing_current_stock_column():
+
+    # Inventory file exists (has Product ID) but no Current Stock
+    # column was ever mapped - every row must still surface with
+    # current_stock=None, not be dropped.
+    inventory = pd.DataFrame({"Product ID": ["P1", "P2"]})
+
+    rows = InventoryService._iter_inventory_rows(inventory, {})
+
+    assert len(rows) == 2
+
+    assert all(row["current_stock"] is None for row in rows)
+
+
+def test_iter_inventory_rows_blank_cell_is_none_real_value_kept():
+
+    inventory = pd.DataFrame({
+
+        "Product ID": ["P1", "P2"],
+
+        "Current Stock": [50.0, None]
+
+    })
+
+    rows = {
+
+        row["product_id"]: row
+
+        for row in InventoryService._iter_inventory_rows(inventory, {})
+
+    }
+
+    assert rows["P1"]["current_stock"] == 50.0
+
+    assert rows["P2"]["current_stock"] is None
+
+
+def test_iter_inventory_rows_adds_forecast_only_products():
+
+    # A product with a forecast but no Inventory row at all must be
+    # included (assumed), not silently excluded.
+    inventory = pd.DataFrame({
+
+        "Product ID": ["P1"],
+
+        "Current Stock": [50.0]
+
+    })
+
+    demand_map = {"P1": {}, "P2": {}}
+
+    rows = {
+
+        row["product_id"]: row
+
+        for row in InventoryService._iter_inventory_rows(
+            inventory,
+            demand_map
+        )
+
+    }
+
+    assert rows["P1"]["current_stock"] == 50.0
+
+    assert rows["P2"]["current_stock"] is None
+
+    assert rows["P2"]["store_id"] == "All Stores"
+
+
 # ---------------------------------------------------------------------
 # Plain-python runner
 # ---------------------------------------------------------------------

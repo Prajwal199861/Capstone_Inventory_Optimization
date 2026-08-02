@@ -127,6 +127,63 @@ def test_service_level_z_defaults_when_unknown():
     )
 
 
+def test_compute_position_with_no_current_stock_assumes_target_level():
+
+    position = ReorderService.compute_position(
+
+        current_stock=None,
+
+        forecast_total=300,
+
+        forecast_periods=30,
+
+        granularity="Daily",
+
+        lead_time_days=7,
+
+        review_period_days=7,
+
+        daily_demand_std=2
+
+    )
+
+    assert position["stock_assumed"] is True
+
+    # Assumed current stock == the target (order-up-to) level, not the
+    # safety-stock floor (which sits right at the reorder trigger and
+    # would misreport a merely unknown stock level as urgent) and not
+    # 0 or some other arbitrary guess.
+    assert position["current_stock"] == position["target_stock_level"]
+
+    assert position["target_stock_level"] > position["safety_stock"]
+
+    # Being at the target level should read as healthy, not urgent.
+    assert position["available_inventory"] > position["reorder_point"]
+
+
+def test_compute_position_with_real_zero_stock_is_not_assumed():
+
+    # An actual reading of 0 must stay 0 - only "no data" (None)
+    # triggers the target-level assumption.
+    position = ReorderService.compute_position(
+
+        current_stock=0,
+
+        forecast_total=300,
+
+        forecast_periods=30,
+
+        granularity="Daily",
+
+        lead_time_days=7
+
+    )
+
+    assert position["stock_assumed"] is False
+
+    assert position["current_stock"] == 0.0
+
+
 # ---------------------------------------------------------------------
 # Plain-python runner
 # ---------------------------------------------------------------------

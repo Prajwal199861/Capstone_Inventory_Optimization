@@ -69,11 +69,17 @@ class InventoryService:
                 "generated_at": datetime
             }
 
-        Raises ValueError when there is no standardized Inventory data
-        or no saved batch forecast to build on - both are dataset-level
-        preconditions, not per-row problems. Missing per-row data
-        (a product with no forecast, a row with no current stock)
-        never stops the run; it is reported as a note instead.
+        Raises ValueError only when there is no saved batch forecast to
+        build on - that is the one true dataset-level precondition
+        (there is no demand to optimize against without it). Missing
+        Inventory data is NOT a precondition: when a product has no
+        current-stock reading (no Inventory file at all, a missing
+        'Current Stock' column, or a blank cell for that row), stock is
+        assumed to have started at 0 and settled at a healthy
+        operating (target order-up-to) level rather than blocking the
+        recommendation - real data always wins when it is present.
+        Every assumed row is flagged via the "Stock Basis" column and
+        a summary note.
         """
 
         overstock_factor = overstock_factor or DEFAULT_OVERSTOCK_FACTOR
@@ -102,31 +108,20 @@ class InventoryService:
 
         rows = []
 
-        missing_stock = 0
+        assumed_stock_count = 0
 
         no_forecast_products = set()
 
         generated_at = datetime.now()
 
-        for _, item in inventory.iterrows():
+        for item in InventoryService._iter_inventory_rows(
+                inventory,
+                demand_map
+        ):
 
-            product_id = item.get("Product ID")
+            product_id = item["product_id"]
 
-            if pd.isna(product_id):
-
-                continue
-
-            product_id = str(product_id)
-
-            current_stock = item.get("Current Stock")
-
-            if pd.isna(current_stock):
-
-                missing_stock += 1
-
-                continue
-
-            current_stock = float(current_stock)
+            current_stock = item["current_stock"]
 
             demand = demand_map.get(product_id)
 
@@ -149,19 +144,19 @@ class InventoryService:
                 daily_demand_std = demand["daily_std"]
 
             row_lead_time = InventoryService._numeric_or(
-                item.get("Lead Time"),
+                item.get("lead_time"),
                 lead_time_days
                 if lead_time_days is not None
                 else DEFAULT_LEAD_TIME_DAYS
             )
 
             row_safety_override = InventoryService._numeric_or(
-                item.get("Safety Stock"),
+                item.get("safety_stock_override"),
                 None
             )
 
             maximum_stock = InventoryService._numeric_or(
-                item.get("Maximum Stock"),
+                item.get("maximum_stock"),
                 None
             )
 
@@ -211,7 +206,7 @@ class InventoryService:
 
             classification = StockRiskService.classify(
 
-                current_stock=current_stock,
+                current_stock=position["current_stock"],
 
                 available_inventory=position["available_inventory"],
 
@@ -225,9 +220,29 @@ class InventoryService:
 
                 days_remaining=position["days_remaining"],
 
-                lead_time_days=position["lead_time_days"]
+                lead_time_days=position["lead_time_days"],
+
+                stock_assumed=position["stock_assumed"]
 
             )
+
+            reason = classification["reason"]
+
+            if position["stock_assumed"]:
+
+                assumed_stock_count += 1
+
+                reason = (
+
+                    "No current-stock data was provided for this "
+
+                    "product; stock is assumed to have started at 0 "
+
+                    "and settled at a healthy operating (target) "
+
+                    "level. " + reason
+
+                )
 
             unit_cost = price_map.get(product_id)
 
@@ -237,11 +252,15 @@ class InventoryService:
 
                 "Product Name": name_map.get(product_id, product_id),
 
-                "Store ID": InventoryService._store_or_default(
-                    item.get("Store ID")
-                ),
+                "Store ID": item["store_id"],
 
-                "Current Stock": current_stock,
+                "Current Stock": round(position["current_stock"], 2),
+
+                "Stock Basis": (
+                    "Assumed"
+                    if position["stock_assumed"]
+                    else "Actual"
+                ),
 
                 "Forecast Demand": round(forecast_total, 2),
 
@@ -278,19 +297,25 @@ class InventoryService:
 
                 "Status": classification["status"],
 
-                "Reason": classification["reason"],
+                "Reason": reason,
 
                 "Recommendation Timestamp": generated_at
 
             })
 
-        if missing_stock:
+        if assumed_stock_count:
 
             notes.append(
 
-                f"{missing_stock} inventory row(s) had no 'Current "
+                f"{assumed_stock_count} product(s) had no current-stock "
 
-                f"Stock' value and were skipped."
+                f"data; their recommendation assumes stock started at "
+
+                f"0 and has since settled at a healthy operating "
+
+                f"(target) level. Upload/map an Inventory file with "
+
+                f"'Current Stock' for accurate numbers."
 
             )
 
@@ -305,26 +330,6 @@ class InventoryService:
                 f"or new products); their recommendation is based on "
 
                 f"current stock only."
-
-            )
-
-        forecasted_without_stock = (
-
-            set(demand_map.keys())
-
-            - set(inventory["Product ID"].dropna().astype(str))
-
-        )
-
-        if forecasted_without_stock:
-
-            notes.append(
-
-                f"{len(forecasted_without_stock)} forecasted product(s) "
-
-                f"have no inventory record and were excluded from "
-
-                f"recommendations."
 
             )
 
@@ -403,7 +408,12 @@ class InventoryService:
     def _load_inventory(
             dataset_id: int
     ):
-        """Standardized Inventory (required) and Products (optional)."""
+        """
+        Standardized Inventory (optional - see class docstring on
+        generate_recommendations for the fallback when it is absent
+        or has no 'Current Stock') and Products (optional, for names
+        and unit cost).
+        """
 
         report = StandardizationService.load_with_report(dataset_id)
 
@@ -415,17 +425,21 @@ class InventoryService:
 
         if inventory is None or inventory.empty:
 
-            raise ValueError(
+            notes.append(
 
                 "No standardized Inventory data available for this "
 
-                "dataset. Upload an Inventory file with 'Product ID' "
+                "dataset; current stock will be assumed to have "
 
-                "and 'Current Stock' mapped."
+                "started at 0 and settled at a healthy operating "
+
+                "level for every forecasted product."
 
             )
 
-        if "Product ID" not in inventory.columns:
+            inventory = None
+
+        elif "Product ID" not in inventory.columns:
 
             raise ValueError(
 
@@ -433,17 +447,117 @@ class InventoryService:
 
             )
 
-        if "Current Stock" not in inventory.columns:
+        elif "Current Stock" not in inventory.columns:
 
-            raise ValueError(
+            notes.append(
 
-                "Inventory data has no 'Current Stock' mapped."
+                "Inventory data has no 'Current Stock' mapped; "
+
+                "current stock will be assumed to have started at 0 "
+
+                "and settled at a healthy operating level for every "
+
+                "product."
 
             )
 
         products = frames.get("Products")
 
         return inventory, products, notes
+
+    @staticmethod
+    def _iter_inventory_rows(
+            inventory: pd.DataFrame | None,
+            demand_map: dict
+    ) -> list:
+        """
+        Unifies real Inventory rows with synthetic rows for products
+        that only exist in the forecast (no Inventory data for them at
+        all), so both flow through one code path: real 'current_stock'
+        when a value exists, None when it does not (whole entity
+        missing, no 'Current Stock' column, or a blank cell) -
+        ReorderService.compute_position() turns None into the assumed
+        healthy-target-level fallback.
+
+        Returns a list of dicts: {product_id, current_stock, store_id,
+        lead_time, safety_stock_override, maximum_stock}.
+        """
+
+        rows = []
+
+        covered_products = set()
+
+        if inventory is not None:
+
+            has_stock_column = "Current Stock" in inventory.columns
+
+            for _, item in inventory.iterrows():
+
+                product_id = item.get("Product ID")
+
+                if pd.isna(product_id):
+
+                    continue
+
+                product_id = str(product_id)
+
+                covered_products.add(product_id)
+
+                raw_stock = (
+                    item.get("Current Stock")
+                    if has_stock_column
+                    else None
+                )
+
+                current_stock = (
+
+                    float(raw_stock)
+
+                    if raw_stock is not None and pd.notna(raw_stock)
+
+                    else None
+
+                )
+
+                rows.append({
+
+                    "product_id": product_id,
+
+                    "current_stock": current_stock,
+
+                    "store_id": InventoryService._store_or_default(
+                        item.get("Store ID")
+                    ),
+
+                    "lead_time": item.get("Lead Time"),
+
+                    "safety_stock_override": item.get("Safety Stock"),
+
+                    "maximum_stock": item.get("Maximum Stock")
+
+                })
+
+        for product_id in sorted(
+                set(demand_map.keys()) - covered_products
+        ):
+
+            rows.append({
+
+                "product_id": product_id,
+
+                "current_stock": None,
+
+                "store_id": "All Stores",
+
+                "lead_time": None,
+
+                "safety_stock_override": None,
+
+                "maximum_stock": None
+
+            })
+
+        return rows
 
     @staticmethod
     def _demand_map(

@@ -184,6 +184,68 @@ def test_healthy_stock_is_adequate():
     assert result["risk_level"] == "Low"
 
 
+def test_assumed_zero_stock_is_not_claimed_as_out_of_stock():
+
+    # current_stock/available_inventory happen to be 0 (e.g. a product
+    # with no forecast demand, so the assumed safety stock is also 0)
+    # but stock_assumed=True must suppress the literal "out of stock"
+    # claim - it is an assumption, not an observed fact.
+    result = StockRiskService.classify(
+
+        current_stock=0,
+
+        available_inventory=0,
+
+        reorder_point=0,
+
+        safety_stock=0,
+
+        forecast_demand=0,
+
+        excess_units=0,
+
+        days_remaining=None,
+
+        lead_time_days=7,
+
+        stock_assumed=True
+
+    )
+
+    assert result["risk_level"] != "Critical"
+
+    assert "out of stock" not in result["reason"].lower()
+
+
+def test_real_zero_stock_is_still_critical():
+
+    result = StockRiskService.classify(
+
+        current_stock=0,
+
+        available_inventory=0,
+
+        reorder_point=50,
+
+        safety_stock=20,
+
+        forecast_demand=100,
+
+        excess_units=0,
+
+        days_remaining=None,
+
+        lead_time_days=7,
+
+        stock_assumed=False
+
+    )
+
+    assert result["risk_level"] == "Critical"
+
+    assert "out of stock" in result["reason"].lower()
+
+
 def test_every_result_carries_a_reason():
 
     scenarios = [

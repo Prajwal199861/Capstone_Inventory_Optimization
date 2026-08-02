@@ -48,7 +48,7 @@ class ReorderService:
 
     @staticmethod
     def compute_position(
-            current_stock: float,
+            current_stock: float | None,
             forecast_total: float,
             forecast_periods: int,
             granularity: str,
@@ -67,13 +67,23 @@ class ReorderService:
         Full stock position for one product (optionally, one
         product-store row).
 
+        current_stock=None means the dataset has no actual reading for
+        this product: stock is assumed to have started at 0 and since
+        settled at a healthy operating level - the target (order-up-to)
+        stock level the formulas already compute from demand/lead time/
+        review period - rather than blocking the recommendation
+        entirely or defaulting to the safety-stock floor, which sits
+        right at the reorder trigger and would misreport a merely
+        unknown stock level as urgent. Real data always wins when it
+        is present - this path only ever runs when it truly is not.
+
         Returns:
 
             {
-                "daily_avg_demand", "lead_time_demand", "safety_stock",
-                "reorder_point", "target_stock_level",
-                "available_inventory", "days_remaining",
-                "recommended_quantity"
+                "current_stock", "stock_assumed", "daily_avg_demand",
+                "lead_time_demand", "safety_stock", "reorder_point",
+                "target_stock_level", "available_inventory",
+                "days_remaining", "recommended_quantity"
             }
         """
 
@@ -165,6 +175,12 @@ class ReorderService:
 
         )
 
+        stock_assumed = current_stock is None
+
+        if stock_assumed:
+
+            current_stock = target_stock_level
+
         available_inventory = InventoryCalculator.available_inventory(
 
             current_stock,
@@ -204,6 +220,10 @@ class ReorderService:
         )
 
         return {
+
+            "current_stock": current_stock,
+
+            "stock_assumed": stock_assumed,
 
             "daily_avg_demand": daily_avg_demand,
 
