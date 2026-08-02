@@ -253,6 +253,16 @@ class MetadataEngine:
 
             "recommended": {
 
+                # Stock held per store lets Phase 3 recommend per
+                # (product, store) instead of one pooled number.
+                "Store ID": [
+                    "store_id",
+                    "branch_id",
+                    "location_id",
+                    "storekey",
+                    "store_key"
+                ],
+
                 "Warehouse": [
                     "warehouse"
                 ],
@@ -272,6 +282,19 @@ class MetadataEngine:
             },
 
             "optional": {
+
+                # Replenishment lead time in days. When absent, the
+                # configured default is used (Phase 3).
+                "Lead Time": [
+                    "lead_time",
+                    "lead_time_days",
+                    "leadtime"
+                ],
+
+                "Supplier": [
+                    "supplier",
+                    "vendor"
+                ],
 
                 "Batch Number": [
                     "batch"

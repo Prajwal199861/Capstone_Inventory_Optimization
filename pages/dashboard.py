@@ -5,6 +5,7 @@ from components.footer import page_footer
 from services.dataset_service import DatasetService
 from services.demand_service import DemandService
 from services.forecast_service import ForecastService
+from services.inventory_service import InventoryService
 
 
 @st.cache_data(ttl=300, show_spinner=False)
@@ -29,6 +30,40 @@ def _count_products(ready_dataset_ids: tuple) -> int:
             continue
 
     return len(product_ids)
+
+
+@st.cache_data(ttl=300, show_spinner=False)
+def _count_alerts(ready_dataset_ids: tuple) -> int:
+    """Critical-risk recommendations across READY datasets that have
+    an Inventory file and a batch forecast (cached: recomputes
+    inventory optimization). Datasets missing either are skipped
+    silently - they simply contribute no alerts yet."""
+
+    alerts = 0
+
+    for dataset_id in ready_dataset_ids:
+
+        try:
+
+            result = InventoryService.generate_recommendations(
+                dataset_id
+            )
+
+            alerts += int(
+                (
+                    result["recommendations"]["Risk Level"] == "Critical"
+                ).sum()
+            )
+
+        except ValueError:
+
+            continue
+
+        except Exception:
+
+            continue
+
+    return alerts
 
 
 def _navigate_to(page: str):
@@ -68,7 +103,7 @@ def dashboard():
         metric_card("Forecasts", ForecastService.count_forecasts())
 
     with c4:
-        metric_card("Alerts", 0)
+        metric_card("Alerts", _count_alerts(ready_ids))
 
     st.divider()
 
@@ -97,12 +132,13 @@ def dashboard():
             "Inventory Report",
             use_container_width=True,
             on_click=_navigate_to,
-            args=("📑 Reports",)
+            args=("🏭 Inventory",)
         )
 
     st.info(
-        "Milestone 3: demand forecasting is live — upload a dataset, "
-        "complete its column mapping, then generate forecasts."
+        "Milestone 3: demand forecasting and inventory optimization "
+        "are live — upload a dataset, complete its column mapping, "
+        "generate a batch forecast, then run inventory optimization."
     )
 
     page_footer()
