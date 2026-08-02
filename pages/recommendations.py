@@ -95,6 +95,8 @@ def render_recommendations(
 
         "Current Stock",
 
+        "Stock Basis",
+
         "Forecast Demand",
 
         "Safety Stock",

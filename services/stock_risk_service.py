@@ -36,7 +36,8 @@ class StockRiskService:
             forecast_demand: float,
             excess_units: float,
             days_remaining: float | None,
-            lead_time_days: float
+            lead_time_days: float,
+            stock_assumed: bool = False
     ) -> dict:
         """
         Applies the Phase 3 business rules in priority order:
@@ -48,10 +49,15 @@ class StockRiskService:
         3. Current Stock >> Forecast Demand       -> Overstock Warning.
         4. Otherwise                              -> Adequate / Low risk.
 
+        stock_assumed=True means current_stock/available_inventory are
+        not an actual reading (no inventory data was provided for this
+        product) - rule 1 is skipped in that case, since claiming "0
+        units on hand" would misrepresent an assumption as a fact.
+
         Returns {"risk_level", "status", "reason"}.
         """
 
-        if current_stock <= 0:
+        if not stock_assumed and current_stock <= 0:
 
             return {
 
