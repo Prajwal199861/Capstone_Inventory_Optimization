@@ -11,6 +11,7 @@ from pages.dataset_management import dataset_management
 from pages.dataset_details import dataset_details
 from pages.standardized_preview import standardized_preview
 from pages.forecast import forecast
+from pages.inventory_dashboard import inventory_dashboard
 
 
 def route(page):
@@ -54,6 +55,8 @@ def route(page):
         "📂 Datasets": dataset_management,
 
         "📈 Forecast": forecast,
+
+        "🏭 Inventory": inventory_dashboard,
 
     }
 

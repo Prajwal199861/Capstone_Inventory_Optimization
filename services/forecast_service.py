@@ -530,6 +530,42 @@ class ForecastService:
         return summary_rows, points
 
     @staticmethod
+    def get_latest_batch_forecast(
+            dataset_id: int
+    ):
+        """
+        Most recent saved batch (all-products) run for a dataset, or
+        None. Phase 3 inventory optimization consumes this instead of
+        recomputing demand forecasts itself.
+        """
+
+        session = SessionLocal()
+
+        try:
+
+            repository = ForecastRepository(session)
+
+            for run in repository.get_by_dataset(dataset_id):
+
+                try:
+
+                    filters = json.loads(run.filters or "{}")
+
+                except ValueError:
+
+                    filters = {}
+
+                if filters.get("scope") == ForecastService.BATCH_SCOPE:
+
+                    return run
+
+            return None
+
+        finally:
+
+            session.close()
+
+    @staticmethod
     def list_forecasts(
             dataset_id: int
     ):

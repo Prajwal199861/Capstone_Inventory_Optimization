@@ -90,6 +90,51 @@ DEFAULT_FORECAST_MONTHS = 3
 
 
 # =============================================================================
+# Inventory Optimization Configuration (Milestone 3 - Phase 3)
+# =============================================================================
+
+# Days between placing a replenishment order and receiving it. Used
+# whenever the dataset carries no per-product lead time.
+DEFAULT_LEAD_TIME_DAYS = 7
+
+# How often stock is reviewed and orders are placed. An order must
+# cover demand until the NEXT review plus the lead time.
+DEFAULT_REVIEW_PERIOD_DAYS = 7
+
+# Probability of not stocking out during the lead time.
+DEFAULT_SERVICE_LEVEL = 0.95
+
+# Normal distribution z-scores for the supported service levels.
+SERVICE_LEVEL_Z_SCORES = {
+
+    0.80: 0.84,
+
+    0.90: 1.28,
+
+    0.95: 1.65,
+
+    0.98: 2.05,
+
+    0.99: 2.33
+
+}
+
+# Fallback safety buffer (in days of average demand) used when demand
+# variability cannot be measured from the forecast.
+DEFAULT_SAFETY_STOCK_DAYS = 3
+
+# Stock above this multiple of the forecast demand over the horizon is
+# flagged as overstock.
+DEFAULT_OVERSTOCK_FACTOR = 2.0
+
+# Reorder quantities are rounded up to a multiple of this value
+# (e.g. case/pallet sizes).
+DEFAULT_ORDER_MULTIPLE = 1
+
+DEFAULT_MINIMUM_ORDER_QUANTITY = 0
+
+
+# =============================================================================
 # Logging
 # =============================================================================
 
