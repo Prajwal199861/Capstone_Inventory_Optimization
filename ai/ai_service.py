@@ -130,11 +130,15 @@ class AIService:
 
         except anthropic.APIStatusError as error:
 
+            detail = AIService._error_detail(error)
+
             raise ValueError(
 
                 f"AI insight failed: the Anthropic API returned an "
 
-                f"error ({error.status_code})."
+                f"error ({error.status_code})"
+
+                f"{': ' + detail if detail else '.'}"
 
             ) from error
 
@@ -159,3 +163,26 @@ class AIService:
             )
 
         return "".join(text_blocks)
+
+    @staticmethod
+    def _error_detail(
+            error: "anthropic.APIStatusError"
+    ) -> str:
+        """
+        Anthropic's error body carries the actual reason (e.g. an
+        invalid model name) that the bare status code doesn't - pull
+        it out so the surfaced message is something a user can
+        actually act on.
+        """
+
+        body = getattr(error, "body", None)
+
+        if isinstance(body, dict):
+
+            message = body.get("error", {}).get("message")
+
+            if message:
+
+                return str(message)
+
+        return str(getattr(error, "message", "")) or ""
