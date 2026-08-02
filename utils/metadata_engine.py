@@ -156,6 +156,15 @@ class MetadataEngine:
 
                 "Size": [
                     "size"
+                ],
+
+                # Seasonality tag (e.g. "Summer", "Winter", "All
+                # Season") consumed by Phase 8 AI insights; omitted
+                # entirely from the AI input when a dataset doesn't
+                # carry it, never guessed.
+                "Season": [
+                    "season",
+                    "seasonality"
                 ]
 
             }

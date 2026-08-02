@@ -33,6 +33,7 @@ from config import (
 )
 
 from services.standardization_service import StandardizationService
+from services.demand_service import DemandService
 from services.forecast_service import ForecastService
 from services.reorder_service import ReorderService
 from services.stock_risk_service import StockRiskService
@@ -106,6 +107,16 @@ class InventoryService:
 
         name_map = InventoryService._name_map(products)
 
+        category_map = InventoryService._column_map(products, "Category")
+
+        season_map = InventoryService._column_map(products, "Season")
+
+        historical_map, history_notes = (
+            InventoryService._historical_demand_map(dataset_id, forecast)
+        )
+
+        notes.extend(history_notes)
+
         rows = []
 
         assumed_stock_count = 0
@@ -142,6 +153,27 @@ class InventoryService:
                 forecast_periods = demand["periods"]
 
                 daily_demand_std = demand["daily_std"]
+
+            historical_total = historical_map.get(product_id)
+
+            demand_change_pct = (
+
+                round(
+
+                    (
+                        (forecast_total - historical_total)
+                        / historical_total
+                    ) * 100,
+
+                    1
+
+                )
+
+                if historical_total
+
+                else None
+
+            )
 
             row_lead_time = InventoryService._numeric_or(
                 item.get("lead_time"),
@@ -252,6 +284,10 @@ class InventoryService:
 
                 "Product Name": name_map.get(product_id, product_id),
 
+                "Category": category_map.get(product_id),
+
+                "Season": season_map.get(product_id),
+
                 "Store ID": item["store_id"],
 
                 "Current Stock": round(position["current_stock"], 2),
@@ -263,6 +299,12 @@ class InventoryService:
                 ),
 
                 "Forecast Demand": round(forecast_total, 2),
+
+                "Demand Change %": demand_change_pct,
+
+                "Target Stock Level": round(
+                    position["target_stock_level"], 2
+                ),
 
                 "Daily Avg Demand": round(
                     position["daily_avg_demand"], 2
@@ -716,6 +758,95 @@ class InventoryService:
             for _, row in named.iterrows()
 
         }
+
+    @staticmethod
+    def _column_map(
+            products: pd.DataFrame | None,
+            column: str
+    ) -> dict:
+        """{product_id: value} for any optional Products column (e.g.
+        Category, Season). Empty when the dataset doesn't carry it -
+        callers must treat a missing key as "not available", never
+        guess a value."""
+
+        if (
+
+                products is None
+
+                or "Product ID" not in products.columns
+
+                or column not in products.columns
+
+        ):
+
+            return {}
+
+        mapped = (
+
+            products
+
+            .dropna(subset=["Product ID"])
+
+            .drop_duplicates(subset=["Product ID"])
+
+        )
+
+        return {
+
+            str(row["Product ID"]): row[column]
+
+            for _, row in mapped.iterrows()
+
+            if pd.notna(row[column])
+
+        }
+
+    @staticmethod
+    def _historical_demand_map(
+            dataset_id: int,
+            forecast
+    ):
+        """
+        {product_id: trailing actual demand over the same number of
+        periods as the forecast horizon}, the real computed baseline
+        "Demand Change %" is measured against. A genuine calculation
+        from historical sales - never something the AI layer is asked
+        to estimate.
+
+        Returns ({}, [note]) instead of raising when history can't be
+        rebuilt for any reason - Demand Change % is supplementary
+        context, never a precondition for recommendations.
+        """
+
+        try:
+
+            product_data = DemandService.build_product_series_map(
+
+                dataset_id,
+
+                granularity=forecast.granularity,
+
+                measure=forecast.measure
+
+            )
+
+        except ValueError as error:
+
+            return {}, [
+
+                f"Demand Change % is unavailable: {error}"
+
+            ]
+
+        return {
+
+            product_id: float(series.tail(forecast.horizon).sum())
+
+            for product_id, series in (
+                product_data["series_map"].items()
+            )
+
+        }, []
 
     @staticmethod
     def _store_or_default(

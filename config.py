@@ -18,7 +18,14 @@ them throughout the project.
 =========================================================================
 """
 
+import os
 from pathlib import Path
+
+from dotenv import load_dotenv
+
+# Loads .env (gitignored) into the process environment if present; a
+# deployment without a .env file just falls back to real env vars.
+load_dotenv()
 
 
 # =============================================================================
@@ -132,6 +139,26 @@ DEFAULT_OVERSTOCK_FACTOR = 2.0
 DEFAULT_ORDER_MULTIPLE = 1
 
 DEFAULT_MINIMUM_ORDER_QUANTITY = 0
+
+
+# =============================================================================
+# AI Decision Support Configuration (Phase 8)
+# =============================================================================
+
+# Read from the environment (.env locally, real env vars in
+# deployment) - never hardcode a key here.
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
+
+AI_MODEL = os.getenv("AI_MODEL", "claude-sonnet-5")
+
+AI_MAX_TOKENS = 900
+
+AI_TEMPERATURE = 0.3
+
+AI_REQUEST_TIMEOUT_SECONDS = 30
+
+# Prompt guideline from the handover doc: keep insights skimmable.
+AI_MAX_RESPONSE_WORDS = 250
 
 
 # =============================================================================
