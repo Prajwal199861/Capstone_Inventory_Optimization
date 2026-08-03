@@ -37,6 +37,24 @@ def _strip_code_fence(
     return _CODE_FENCE.sub("", text.strip()).strip()
 
 
+_SNIPPET_LIMIT = 600
+
+
+def _snippet(
+        text: str
+) -> str:
+    """Truncated raw response for error messages - enough to diagnose
+    what the model actually sent without an unwieldy UI error box."""
+
+    text = text.strip()
+
+    if len(text) <= _SNIPPET_LIMIT:
+
+        return repr(text)
+
+    return repr(text[:_SNIPPET_LIMIT]) + f"... ({len(text)} chars total)"
+
+
 def format_response(
         raw_text: str
 ) -> dict:
@@ -75,7 +93,9 @@ def format_response(
 
             "AI insight failed: the model's response could not be "
 
-            "parsed. Please try again."
+            "parsed. Please try again. Raw response: "
+
+            f"{_snippet(raw_text)}"
 
         ) from error
 
@@ -85,7 +105,9 @@ def format_response(
 
             "AI insight failed: the model's response was not the "
 
-            "expected JSON object. Please try again."
+            "expected JSON object. Please try again. Raw response: "
+
+            f"{_snippet(raw_text)}"
 
         )
 

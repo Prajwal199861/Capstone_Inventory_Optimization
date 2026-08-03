@@ -155,7 +155,10 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 # a specific dated version gets deprecated for new API keys.
 AI_MODEL = os.getenv("AI_MODEL", "gemini-flash-latest")
 
-AI_MAX_TOKENS = 900
+# Generous relative to the ~250-word budget the prompt itself enforces
+# (see AI_MAX_RESPONSE_WORDS) - this is just headroom for JSON
+# structure overhead, not an invitation to write longer insights.
+AI_MAX_TOKENS = 2048
 
 AI_TEMPERATURE = 0.3
 
