@@ -22,7 +22,7 @@ from config import (
     AI_MODEL,
     AI_REQUEST_TIMEOUT_SECONDS,
     AI_TEMPERATURE,
-    ANTHROPIC_API_KEY
+    GEMINI_API_KEY
 )
 
 __all__ = [
@@ -31,7 +31,7 @@ __all__ = [
     "AI_MODEL",
     "AI_REQUEST_TIMEOUT_SECONDS",
     "AI_TEMPERATURE",
-    "ANTHROPIC_API_KEY",
+    "GEMINI_API_KEY",
     "INSIGHT_SECTIONS",
     "SECTION_LABELS",
     "NOT_AVAILABLE"

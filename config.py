@@ -147,9 +147,9 @@ DEFAULT_MINIMUM_ORDER_QUANTITY = 0
 
 # Read from the environment (.env locally, real env vars in
 # deployment) - never hardcode a key here.
-ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
-AI_MODEL = os.getenv("AI_MODEL", "claude-sonnet-5")
+AI_MODEL = os.getenv("AI_MODEL", "gemini-2.5-flash")
 
 AI_MAX_TOKENS = 900
 

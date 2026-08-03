@@ -6,7 +6,7 @@ Project : AI-Powered Retail Demand Forecasting &
 File : ai/ai_service.py
 
 Description :
-Phase 8 - the ONLY module in this app that talks to the Anthropic API.
+Phase 8 - the ONLY module in this app that talks to the Gemini API.
 Takes a ready-made system/user prompt pair and returns the raw model
 text. No prompt construction, no response parsing, no business logic -
 that lives in prompt_builder.py and formatter.py so the API call
@@ -14,14 +14,17 @@ itself stays swappable/testable in isolation.
 =============================================================================
 """
 
-import anthropic
+import httpx
+
+from google import genai
+from google.genai import errors, types
 
 from ai.config import (
     AI_MAX_TOKENS,
     AI_MODEL,
     AI_REQUEST_TIMEOUT_SECONDS,
     AI_TEMPERATURE,
-    ANTHROPIC_API_KEY
+    GEMINI_API_KEY
 )
 
 
@@ -30,15 +33,15 @@ class AIService:
     _client = None
 
     @classmethod
-    def _get_client(cls) -> anthropic.Anthropic:
+    def _get_client(cls) -> genai.Client:
 
-        if not ANTHROPIC_API_KEY:
+        if not GEMINI_API_KEY:
 
             raise ValueError(
 
-                "ANTHROPIC_API_KEY is not set. Copy .env.example to "
+                "GEMINI_API_KEY is not set. Copy .env.example to "
 
-                ".env and add your Anthropic API key to enable AI "
+                ".env and add your Gemini API key to enable AI "
 
                 "insights."
 
@@ -46,11 +49,15 @@ class AIService:
 
         if cls._client is None:
 
-            cls._client = anthropic.Anthropic(
+            cls._client = genai.Client(
 
-                api_key=ANTHROPIC_API_KEY,
+                api_key=GEMINI_API_KEY,
 
-                timeout=AI_REQUEST_TIMEOUT_SECONDS
+                http_options=types.HttpOptions(
+
+                    timeout=AI_REQUEST_TIMEOUT_SECONDS * 1000
+
+                )
 
             )
 
@@ -74,43 +81,41 @@ class AIService:
 
         try:
 
-            response = client.messages.create(
+            response = client.models.generate_content(
 
                 model=AI_MODEL,
 
-                max_tokens=AI_MAX_TOKENS,
+                contents=user_prompt,
 
-                temperature=AI_TEMPERATURE,
+                config=types.GenerateContentConfig(
 
-                system=system_prompt,
+                    system_instruction=system_prompt,
 
-                messages=[
-                    {"role": "user", "content": user_prompt}
-                ]
+                    temperature=AI_TEMPERATURE,
+
+                    max_output_tokens=AI_MAX_TOKENS
+
+                )
 
             )
 
-        except anthropic.AuthenticationError as error:
+        except errors.ClientError as error:
+
+            raise ValueError(
+                AIService._client_error_message(error)
+            ) from error
+
+        except errors.ServerError as error:
 
             raise ValueError(
 
-                "AI insight failed: the Anthropic API key was "
+                f"AI insight failed: the Gemini API had a server-side "
 
-                "rejected. Check ANTHROPIC_API_KEY in your .env file."
-
-            ) from error
-
-        except anthropic.RateLimitError as error:
-
-            raise ValueError(
-
-                "AI insight failed: rate limit reached. Try again in "
-
-                "a moment."
+                f"error ({error.code}). Try again in a moment."
 
             ) from error
 
-        except anthropic.APITimeoutError as error:
+        except httpx.TimeoutException as error:
 
             raise ValueError(
 
@@ -118,41 +123,19 @@ class AIService:
 
             ) from error
 
-        except anthropic.APIConnectionError as error:
+        except httpx.TransportError as error:
 
             raise ValueError(
 
-                "AI insight failed: could not reach the Anthropic "
+                "AI insight failed: could not reach the Gemini API. "
 
-                "API. Check your network connection."
-
-            ) from error
-
-        except anthropic.APIStatusError as error:
-
-            detail = AIService._error_detail(error)
-
-            raise ValueError(
-
-                f"AI insight failed: the Anthropic API returned an "
-
-                f"error ({error.status_code})"
-
-                f"{': ' + detail if detail else '.'}"
+                "Check your network connection."
 
             ) from error
 
-        text_blocks = [
+        text = getattr(response, "text", None)
 
-            block.text
-
-            for block in response.content
-
-            if getattr(block, "type", None) == "text"
-
-        ]
-
-        if not text_blocks:
+        if not text:
 
             raise ValueError(
 
@@ -162,27 +145,42 @@ class AIService:
 
             )
 
-        return "".join(text_blocks)
+        return text
 
     @staticmethod
-    def _error_detail(
-            error: "anthropic.APIStatusError"
+    def _client_error_message(
+            error: "errors.ClientError"
     ) -> str:
-        """
-        Anthropic's error body carries the actual reason (e.g. an
-        invalid model name) that the bare status code doesn't - pull
-        it out so the surfaced message is something a user can
-        actually act on.
-        """
+        """Maps a Gemini 4xx error to a clear, actionable message."""
 
-        body = getattr(error, "body", None)
+        detail = getattr(error, "message", None) or str(error)
 
-        if isinstance(body, dict):
+        if error.code in (401, 403):
 
-            message = body.get("error", {}).get("message")
+            return (
 
-            if message:
+                f"AI insight failed: the Gemini API key was rejected "
 
-                return str(message)
+                f"({error.code}). Check GEMINI_API_KEY in your .env "
 
-        return str(getattr(error, "message", "")) or ""
+                f"file. Detail: {detail}"
+
+            )
+
+        if error.code == 429:
+
+            return (
+
+                "AI insight failed: rate limit or free-tier quota "
+
+                "reached. Try again in a moment."
+
+            )
+
+        return (
+
+            f"AI insight failed: the Gemini API returned an error "
+
+            f"({error.code}): {detail}"
+
+        )
