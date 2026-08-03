@@ -120,16 +120,7 @@ class AIService:
 
                     response_mime_type="application/json",
 
-                    response_schema=_RESPONSE_SCHEMA,
-
-                    # This task is pure formatting of already-computed
-                    # data, not reasoning - thinking tokens are billed
-                    # against max_output_tokens on models that default
-                    # to them, and can consume the whole budget before
-                    # any visible JSON is produced. Disabled outright.
-                    thinking_config=types.ThinkingConfig(
-                        thinking_budget=0
-                    )
+                    response_schema=_RESPONSE_SCHEMA
 
                 )
 
