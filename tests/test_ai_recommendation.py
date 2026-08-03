@@ -99,11 +99,11 @@ def test_build_payload_tolerates_missing_keys():
 
 def test_ai_service_raises_clear_error_without_api_key():
 
-    original_key = ai_service_module.ANTHROPIC_API_KEY
+    original_key = ai_service_module.GEMINI_API_KEY
 
     original_client = AIService._client
 
-    ai_service_module.ANTHROPIC_API_KEY = None
+    ai_service_module.GEMINI_API_KEY = None
 
     AIService._client = None
 
@@ -117,22 +117,22 @@ def test_ai_service_raises_clear_error_without_api_key():
 
         except ValueError as error:
 
-            assert "ANTHROPIC_API_KEY" in str(error)
+            assert "GEMINI_API_KEY" in str(error)
 
     finally:
 
-        ai_service_module.ANTHROPIC_API_KEY = original_key
+        ai_service_module.GEMINI_API_KEY = original_key
 
         AIService._client = original_client
 
 
 def test_recommendation_generate_propagates_missing_key_error():
 
-    original_key = ai_service_module.ANTHROPIC_API_KEY
+    original_key = ai_service_module.GEMINI_API_KEY
 
     original_client = AIService._client
 
-    ai_service_module.ANTHROPIC_API_KEY = None
+    ai_service_module.GEMINI_API_KEY = None
 
     AIService._client = None
 
@@ -146,11 +146,11 @@ def test_recommendation_generate_propagates_missing_key_error():
 
         except ValueError as error:
 
-            assert "ANTHROPIC_API_KEY" in str(error)
+            assert "GEMINI_API_KEY" in str(error)
 
     finally:
 
-        ai_service_module.ANTHROPIC_API_KEY = original_key
+        ai_service_module.GEMINI_API_KEY = original_key
 
         AIService._client = original_client
 
