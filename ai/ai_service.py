@@ -24,7 +24,30 @@ from ai.config import (
     AI_MODEL,
     AI_REQUEST_TIMEOUT_SECONDS,
     AI_TEMPERATURE,
-    GEMINI_API_KEY
+    GEMINI_API_KEY,
+    INSIGHT_SECTIONS
+)
+
+
+# Forces Gemini's structured-output mode so the response is guaranteed
+# valid JSON matching this exact shape, instead of relying only on the
+# system prompt's instructions (which the model does not always follow
+# to the letter - unlike Claude, Gemini would sometimes add a preamble
+# or wrap the JSON in prose despite being told not to).
+_RESPONSE_SCHEMA = types.Schema(
+
+    type=types.Type.OBJECT,
+
+    properties={
+
+        key: types.Schema(type=types.Type.STRING)
+
+        for key in INSIGHT_SECTIONS
+
+    },
+
+    required=INSIGHT_SECTIONS
+
 )
 
 
@@ -93,7 +116,11 @@ class AIService:
 
                     temperature=AI_TEMPERATURE,
 
-                    max_output_tokens=AI_MAX_TOKENS
+                    max_output_tokens=AI_MAX_TOKENS,
+
+                    response_mime_type="application/json",
+
+                    response_schema=_RESPONSE_SCHEMA
 
                 )
 
