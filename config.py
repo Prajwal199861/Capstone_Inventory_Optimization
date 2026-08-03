@@ -149,7 +149,11 @@ DEFAULT_MINIMUM_ORDER_QUANTITY = 0
 # deployment) - never hardcode a key here.
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
-AI_MODEL = os.getenv("AI_MODEL", "gemini-2.5-flash")
+
+# "-latest" is Google's own alias for the current recommended
+# flash-tier model, so this doesn't need to be re-pinned every time
+# a specific dated version gets deprecated for new API keys.
+AI_MODEL = os.getenv("AI_MODEL", "gemini-flash-latest")
 
 AI_MAX_TOKENS = 900
 
