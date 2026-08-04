@@ -3,6 +3,86 @@ from components.header import page_header
 from components.footer import page_footer
 from services.dataset_service import DatasetService
 from services.dataset_file_service import DatasetFileService
+from utils.metadata_engine import MetadataEngine
+from utils.template_generator import TemplateGenerator
+
+
+def _sample_templates_tab():
+
+    st.subheader("Sample Dataset Templates")
+
+    st.caption(
+        "Download a starter file per dataset type with the exact "
+        "column names the app recognizes (Required + Recommended "
+        "fields) and a few example rows. IDs are cross-referenced "
+        "across templates (e.g. Product ID P001 appears in Products, "
+        "Sales and Inventory) so they can be combined into one "
+        "working demo dataset."
+    )
+
+    file_format = st.radio(
+        "File Format",
+        ["CSV", "XLSX"],
+        horizontal=True
+    )
+
+    for entity_type in TemplateGenerator.supported_entities():
+
+        template = MetadataEngine.get_template(entity_type)
+
+        with st.container(border=True):
+
+            c1, c2 = st.columns([4, 1])
+
+            with c1:
+
+                st.markdown(f"**{entity_type}**")
+
+                required = ", ".join(template.get("required", {}))
+
+                recommended = ", ".join(
+                    template.get("recommended", {})
+                )
+
+                st.caption(f"Required: {required}")
+
+                if recommended:
+
+                    st.caption(f"Recommended: {recommended}")
+
+            with c2:
+
+                if file_format == "CSV":
+
+                    data = TemplateGenerator.to_csv_bytes(entity_type)
+
+                    mime = "text/csv"
+
+                    extension = "csv"
+
+                else:
+
+                    data = TemplateGenerator.to_xlsx_bytes(entity_type)
+
+                    mime = (
+                        "application/vnd.openxmlformats-officedocument"
+                        ".spreadsheetml.sheet"
+                    )
+
+                    extension = "xlsx"
+
+                st.download_button(
+                    "⬇ Download",
+                    data,
+                    file_name=(
+                        f"{entity_type.lower().replace(' ', '_')}"
+                        f"_template.{extension}"
+                    ),
+                    mime=mime,
+                    key=f"template_{entity_type}",
+                    use_container_width=True
+                )
+
 
 def dataset_management():
     status_icon = {
@@ -16,10 +96,11 @@ def dataset_management():
         "📂 Dataset Management",
         "Create a logical dataset and upload multiple files."
     )
-    tab1, tab2 = st.tabs(
+    tab1, tab2, tab3 = st.tabs(
         [
             "📁 My Datasets",
-            "➕ Create Dataset"
+            "➕ Create Dataset",
+            "📥 Sample Templates"
         ]
     )
     with tab1:
@@ -109,4 +190,6 @@ def dataset_management():
                 )
             except Exception as ex:
                 st.error(str(ex))
+    with tab3:
+        _sample_templates_tab()
     page_footer()
