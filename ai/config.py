@@ -34,12 +34,15 @@ __all__ = [
     "GEMINI_API_KEY",
     "INSIGHT_SECTIONS",
     "SECTION_LABELS",
+    "EXECUTIVE_SECTIONS",
+    "EXECUTIVE_SECTION_LABELS",
+    "EXECUTIVE_MAX_RESPONSE_WORDS",
     "NOT_AVAILABLE"
 ]
 
 # Ordered JSON keys the model must return - the contract between
 # prompt_builder (asks for these), the model response, and formatter
-# (validates against these).
+# (validates against these). Per-product AI Insight (Phase 8).
 INSIGHT_SECTIONS = [
     "executive_summary",
     "business_recommendation",
@@ -61,6 +64,36 @@ SECTION_LABELS = {
     "final_recommendation": "Final Recommendation"
 
 }
+
+# Same contract, for the dataset-wide AI Executive Report (Milestone
+# 4 - Phase 3). A different schema, so ai_service.generate() takes
+# `sections` as a parameter rather than hardcoding one shape - the
+# API-call layer itself is unchanged.
+EXECUTIVE_SECTIONS = [
+    "overall_health",
+    "critical_issues",
+    "positive_findings",
+    "immediate_actions",
+    "management_recommendations"
+]
+
+EXECUTIVE_SECTION_LABELS = {
+
+    "overall_health": "Overall Inventory Health",
+
+    "critical_issues": "Critical Issues",
+
+    "positive_findings": "Positive Findings",
+
+    "immediate_actions": "Immediate Actions",
+
+    "management_recommendations": "Management Recommendations"
+
+}
+
+# A dataset-wide summary covers more ground than one product, so it
+# gets a slightly larger word budget than the per-product insight.
+EXECUTIVE_MAX_RESPONSE_WORDS = 400
 
 # Shown to the model for fields the dataset doesn't provide, and
 # reused for display so the UI and the prompt stay consistent.

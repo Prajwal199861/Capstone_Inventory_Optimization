@@ -18,8 +18,17 @@ schema only ever touches this one mapping.
 """
 
 from ai.ai_service import AIService
+
+from ai.config import (
+    EXECUTIVE_MAX_RESPONSE_WORDS,
+    EXECUTIVE_SECTION_LABELS,
+    EXECUTIVE_SECTIONS,
+    INSIGHT_SECTIONS
+)
+
 from ai.formatter import format_response
-from ai.prompt_builder import build_prompts
+
+from ai.prompt_builder import build_executive_prompts, build_prompts
 
 
 class AIRecommendationService:
@@ -87,6 +96,38 @@ class AIRecommendationService:
 
         system_prompt, user_prompt = build_prompts(payload)
 
-        raw_response = AIService.generate(system_prompt, user_prompt)
+        raw_response = AIService.generate(
+            system_prompt,
+            user_prompt,
+            sections=INSIGHT_SECTIONS
+        )
 
         return format_response(raw_response)
+
+    @staticmethod
+    def generate_executive_summary(
+            payload: dict
+    ) -> dict:
+        """
+        Milestone 4 - Phase 3: the dataset-wide AI Executive Report.
+        Same pipeline as generate() (prompt_builder -> ai_service ->
+        formatter), against the executive JSON contract instead of
+        the per-product one. `payload` is ReportService.
+        ai_executive_payload()'s output - this method does not
+        aggregate anything itself.
+        """
+
+        system_prompt, user_prompt = build_executive_prompts(payload)
+
+        raw_response = AIService.generate(
+            system_prompt,
+            user_prompt,
+            sections=EXECUTIVE_SECTIONS
+        )
+
+        return format_response(
+            raw_response,
+            sections=EXECUTIVE_SECTIONS,
+            section_labels=EXECUTIVE_SECTION_LABELS,
+            max_words=EXECUTIVE_MAX_RESPONSE_WORDS
+        )

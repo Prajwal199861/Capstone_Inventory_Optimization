@@ -92,7 +92,7 @@ def test_aggregate_single_store_row_is_a_passthrough():
 
     rows = pd.DataFrame([_row()])
 
-    aggregated = ProductService._aggregate_store_rows(rows)
+    aggregated = ProductService.aggregate_store_rows(rows)
 
     assert aggregated["Store ID"] == "S1"
 
@@ -139,7 +139,7 @@ def test_aggregate_sums_inventory_positions_across_stores():
 
     ])
 
-    aggregated = ProductService._aggregate_store_rows(rows)
+    aggregated = ProductService.aggregate_store_rows(rows)
 
     assert aggregated["Store Count"] == 2
 
@@ -175,7 +175,7 @@ def test_aggregate_picks_most_severe_risk_and_min_days_remaining():
 
     ])
 
-    aggregated = ProductService._aggregate_store_rows(rows)
+    aggregated = ProductService.aggregate_store_rows(rows)
 
     assert aggregated["Risk Level"] == "Critical"
 
@@ -196,7 +196,7 @@ def test_aggregate_flags_mixed_stock_basis():
 
     ])
 
-    aggregated = ProductService._aggregate_store_rows(rows)
+    aggregated = ProductService.aggregate_store_rows(rows)
 
     assert aggregated["Stock Basis"] == "Mixed"
 

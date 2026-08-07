@@ -24,31 +24,41 @@ from ai.config import (
     AI_MODEL,
     AI_REQUEST_TIMEOUT_SECONDS,
     AI_TEMPERATURE,
-    GEMINI_API_KEY,
-    INSIGHT_SECTIONS
+    GEMINI_API_KEY
 )
 
 
-# Forces Gemini's structured-output mode so the response is guaranteed
-# valid JSON matching this exact shape, instead of relying only on the
-# system prompt's instructions (which the model does not always follow
-# to the letter - unlike Claude, Gemini would sometimes add a preamble
-# or wrap the JSON in prose despite being told not to).
-_RESPONSE_SCHEMA = types.Schema(
+def _response_schema(
+        sections: list[str]
+) -> types.Schema:
+    """
+    Forces Gemini's structured-output mode so the response is
+    guaranteed valid JSON matching this exact shape, instead of
+    relying only on the system prompt's instructions (which the model
+    does not always follow to the letter - unlike Claude, Gemini
+    would sometimes add a preamble or wrap the JSON in prose despite
+    being told not to). Built from `sections` rather than a fixed
+    module-level constant so this one API-call layer serves every
+    JSON contract in the app (per-product insight, dataset-wide
+    executive summary, ...) without duplicating the call/error-
+    handling logic per contract.
+    """
 
-    type=types.Type.OBJECT,
+    return types.Schema(
 
-    properties={
+        type=types.Type.OBJECT,
 
-        key: types.Schema(type=types.Type.STRING)
+        properties={
 
-        for key in INSIGHT_SECTIONS
+            key: types.Schema(type=types.Type.STRING)
 
-    },
+            for key in sections
 
-    required=INSIGHT_SECTIONS
+        },
 
-)
+        required=sections
+
+    )
 
 
 class AIService:
@@ -90,14 +100,17 @@ class AIService:
     def generate(
             cls,
             system_prompt: str,
-            user_prompt: str
+            user_prompt: str,
+            sections: list[str]
     ) -> str:
         """
         Sends one prompt pair to the model and returns the raw text
-        response. Raises ValueError with a clear, user-facing message
-        on any failure (missing key, auth, rate limit, timeout,
-        network) - callers surface this directly, consistent with how
-        the rest of the app reports precondition failures.
+        response, constrained to a JSON object with exactly these
+        `sections` as required string keys. Raises ValueError with a
+        clear, user-facing message on any failure (missing key, auth,
+        rate limit, timeout, network) - callers surface this directly,
+        consistent with how the rest of the app reports precondition
+        failures.
         """
 
         client = cls._get_client()
@@ -120,7 +133,7 @@ class AIService:
 
                     response_mime_type="application/json",
 
-                    response_schema=_RESPONSE_SCHEMA
+                    response_schema=_response_schema(sections)
 
                 )
 

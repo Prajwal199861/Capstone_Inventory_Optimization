@@ -13,6 +13,7 @@ from pages.standardized_preview import standardized_preview
 from pages.forecast import forecast
 from pages.inventory_dashboard import inventory_dashboard
 from pages.products import products
+from pages.reports import reports
 
 
 def route(page):
@@ -60,6 +61,8 @@ def route(page):
         "📈 Forecast": forecast,
 
         "🏭 Inventory": inventory_dashboard,
+
+        "📑 Reports": reports,
 
     }
 
