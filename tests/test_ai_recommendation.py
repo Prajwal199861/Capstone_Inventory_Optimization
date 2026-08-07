@@ -111,7 +111,7 @@ def test_ai_service_raises_clear_error_without_api_key():
 
         try:
 
-            AIService.generate("system", "user")
+            AIService.generate("system", "user", sections=["executive_summary"])
 
             assert False, "expected ValueError"
 

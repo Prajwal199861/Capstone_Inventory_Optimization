@@ -56,19 +56,21 @@ def _snippet(
 
 
 def format_response(
-        raw_text: str
+        raw_text: str,
+        sections: list[str] = INSIGHT_SECTIONS,
+        section_labels: dict = SECTION_LABELS,
+        max_words: int = AI_MAX_RESPONSE_WORDS
 ) -> dict:
     """
-    Parses and validates one model response.
+    Parses and validates one model response against a given JSON
+    contract (defaults to the per-product AI Insight's five sections;
+    the AI Executive Report passes its own `sections`/
+    `section_labels`/`max_words` - see ai/config.py).
 
     Returns:
 
         {
-            "executive_summary": str,
-            "business_recommendation": str,
-            "inventory_action": str,
-            "risk_explanation": str,
-            "final_recommendation": str,
+            <one key per entry in `sections`>: str,
             "missing_sections": [str],
             "word_count": int,
             "over_word_limit": bool
@@ -78,7 +80,7 @@ def format_response(
     surfaced, retryable failure is better than silently showing junk.
     Individual missing keys are tolerated (defaulted to "") and
     reported via "missing_sections" rather than failing the whole
-    insight over one dropped field.
+    response over one dropped field.
     """
 
     cleaned = _strip_code_fence(raw_text)
@@ -111,39 +113,39 @@ def format_response(
 
         )
 
-    sections = {}
+    result_sections = {}
 
     missing_sections = []
 
-    for key in INSIGHT_SECTIONS:
+    for key in sections:
 
         value = parsed.get(key)
 
         if isinstance(value, str) and value.strip():
 
-            sections[key] = value.strip()
+            result_sections[key] = value.strip()
 
         else:
 
-            sections[key] = ""
+            result_sections[key] = ""
 
-            missing_sections.append(SECTION_LABELS[key])
+            missing_sections.append(section_labels[key])
 
     word_count = sum(
-        count_words(text) for text in sections.values()
+        count_words(text) for text in result_sections.values()
     )
 
     return {
 
-        **sections,
+        **result_sections,
 
         "missing_sections": missing_sections,
 
         "word_count": word_count,
 
         "over_word_limit": is_over_word_limit(
-            sections,
-            AI_MAX_RESPONSE_WORDS
+            result_sections,
+            max_words
         )
 
     }

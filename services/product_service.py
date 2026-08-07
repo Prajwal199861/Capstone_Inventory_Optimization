@@ -186,7 +186,7 @@ class ProductService:
 
         rows = [
 
-            ProductService._aggregate_store_rows(group)
+            ProductService.aggregate_store_rows(group)
 
             for _, group in recommendations.groupby(
                 "Product ID",
@@ -211,7 +211,7 @@ class ProductService:
 
             {
                 "product": dict (Requirement 4 fields, aggregated
-                    across stores - see _aggregate_store_rows),
+                    across stores - see aggregate_store_rows),
                 "stores": DataFrame (Requirement 7 - one row per
                     store this product exists in; a single synthetic
                     "All Stores" row when the dataset carries no
@@ -252,7 +252,7 @@ class ProductService:
 
             )
 
-        product = ProductService._aggregate_store_rows(store_rows)
+        product = ProductService.aggregate_store_rows(store_rows)
 
         forecast, forecast_notes = ProductService._product_forecast(
 
@@ -291,7 +291,7 @@ class ProductService:
     # -----------------------------------------------------------------
 
     @staticmethod
-    def _aggregate_store_rows(
+    def aggregate_store_rows(
             store_rows: pd.DataFrame
     ) -> dict:
         """
