@@ -17,8 +17,7 @@ so the detail-table concern can evolve (e.g. pagination, a dedicated
 
 import streamlit as st
 
-from ai.config import SECTION_LABELS
-from ai.recommendation import AIRecommendationService
+from components.ai_insight_panel import render_ai_insight_panel
 
 from services.inventory_service import InventoryService
 
@@ -189,31 +188,6 @@ def _insight_cache_key(
     )
 
 
-def _render_insight(
-        insight: dict
-):
-
-    for key, label in SECTION_LABELS.items():
-
-        st.markdown(f"**{label}**")
-
-        st.write(insight[key] or "_Not provided by the model._")
-
-    caption_bits = [f"{insight['word_count']} words"]
-
-    if insight["over_word_limit"]:
-
-        caption_bits.append("⚠ over the 250-word guideline")
-
-    if insight["missing_sections"]:
-
-        caption_bits.append(
-            "missing: " + ", ".join(insight["missing_sections"])
-        )
-
-    st.caption(" · ".join(caption_bits))
-
-
 def _ai_insight_section(
         dataset_id: int,
         filtered,
@@ -221,70 +195,51 @@ def _ai_insight_section(
 ):
     """
     Phase 8: contextual per-product AI insight for whichever row the
-    user selects in the table above - generated on demand (a live API
-    call) and cached in session_state so it survives reruns without
-    being regenerated for every widget interaction on the page.
+    user selects in the table above.
     """
 
     st.divider()
 
-    st.subheader("🤖 AI Insight")
-
     selected_positions = selection.selection.rows
 
-    if not selected_positions:
+    row = None
 
-        st.caption(
-            "Select a product row in the table above, then generate "
-            "a business-friendly AI insight for it."
+    label = None
+
+    cache_key = None
+
+    if selected_positions:
+
+        selected_row = filtered.iloc[selected_positions[0]]
+
+        row = selected_row.to_dict()
+
+        cache_key = _insight_cache_key(dataset_id, selected_row)
+
+        label = (
+
+            f"**{selected_row['Product Name']}** "
+
+            f"({selected_row['Store ID']}) - {selected_row['Status']}, "
+
+            f"{selected_row['Risk Level']} risk."
+
         )
 
-        return
+    render_ai_insight_panel(
 
-    row = filtered.iloc[selected_positions[0]]
+        cache_key,
 
-    cache_key = _insight_cache_key(dataset_id, row)
+        row,
 
-    st.write(
-        f"Selected: **{row['Product Name']}** "
-        f"({row['Store ID']}) - {row['Status']}, "
-        f"{row['Risk Level']} risk."
+        label,
+
+        empty_message=(
+
+            "Select a product row in the table above, then generate "
+
+            "a business-friendly AI insight for it."
+
+        )
+
     )
-
-    generate = st.button("🤖 Generate AI Insight")
-
-    insights = st.session_state.setdefault("ai_insights", {})
-
-    if generate:
-
-        try:
-
-            with st.spinner("Generating AI insight..."):
-
-                insights[cache_key] = {
-
-                    "ok": True,
-
-                    "data": AIRecommendationService.generate(
-                        row.to_dict()
-                    )
-
-                }
-
-        except ValueError as error:
-
-            insights[cache_key] = {"ok": False, "error": str(error)}
-
-    cached = insights.get(cache_key)
-
-    if cached is None:
-
-        return
-
-    if cached["ok"]:
-
-        _render_insight(cached["data"])
-
-    else:
-
-        st.error(cached["error"])

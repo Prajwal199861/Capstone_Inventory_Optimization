@@ -111,6 +111,10 @@ class InventoryService:
 
         season_map = InventoryService._column_map(products, "Season")
 
+        display_price_map = InventoryService._column_map(
+            products, "Selling Price"
+        )
+
         historical_map, history_notes = (
             InventoryService._historical_demand_map(dataset_id, forecast)
         )
@@ -287,6 +291,8 @@ class InventoryService:
                 "Category": category_map.get(product_id),
 
                 "Season": season_map.get(product_id),
+
+                "Price": display_price_map.get(product_id),
 
                 "Store ID": item["store_id"],
 
