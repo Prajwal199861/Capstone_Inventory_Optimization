@@ -135,10 +135,10 @@ def dashboard():
             args=("🏭 Inventory",)
         )
 
-    #st.info(
-    #    "Milestone 3: demand forecasting and inventory optimization "
-      #  "are live — upload a dataset, complete its column mapping, "
-      #  "generate a batch forecast, then run inventory optimization."
-    #)
+    st.info(
+        "Demand forecasting and inventory optimization "
+        "are live — upload a dataset, complete its column mapping, "
+        "generate a batch forecast, then run inventory optimization."
+    )
 
     page_footer()
