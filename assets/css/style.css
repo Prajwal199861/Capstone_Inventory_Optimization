@@ -21,6 +21,12 @@ section[data-testid="stSidebar"]{
 
 }
 
+div[data-testid="stSidebarNav"]{
+
+    display:none;
+
+}
+
 
 /* ===============================
 Cards
