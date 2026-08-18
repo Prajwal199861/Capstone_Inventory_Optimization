@@ -114,7 +114,7 @@ def dataset_management():
         else:
             for dataset in datasets:
                 with st.container(border=True):
-                    c1, c2 = st.columns([4, 1])
+                    c1, c2, c3 = st.columns([4, 1, 1])
                     with c1:
                         st.markdown(
                             f"### 📁 {dataset.dataset_name}"
@@ -144,6 +144,67 @@ def dataset_management():
                             st.session_state.current_page = "dataset_details"
 
                             st.rerun()
+                    with c3:
+                        if st.button(
+
+                                "🗑 Delete",
+
+                                key=f"delete_{dataset.id}",
+
+                                use_container_width=True
+
+                        ):
+                            st.session_state[
+                                f"confirm_delete_{dataset.id}"
+                            ] = True
+
+                    if st.session_state.get(
+                            f"confirm_delete_{dataset.id}"
+                    ):
+                        st.warning(
+                            f"Delete \"{dataset.dataset_name}\"? This "
+                            f"permanently removes its files, column "
+                            f"mappings, and any forecasts generated "
+                            f"from it."
+                        )
+                        cc1, cc2 = st.columns(2)
+                        with cc1:
+                            if st.button(
+
+                                    "Confirm Delete",
+
+                                    key=f"confirm_yes_{dataset.id}",
+
+                                    use_container_width=True
+
+                            ):
+                                try:
+                                    DatasetService.delete_dataset(
+                                        dataset.id
+                                    )
+                                    del st.session_state[
+                                        f"confirm_delete_{dataset.id}"
+                                    ]
+                                    st.success(
+                                        "Dataset deleted."
+                                    )
+                                    st.rerun()
+                                except Exception as ex:
+                                    st.error(str(ex))
+                        with cc2:
+                            if st.button(
+
+                                    "Cancel",
+
+                                    key=f"confirm_no_{dataset.id}",
+
+                                    use_container_width=True
+
+                            ):
+                                del st.session_state[
+                                    f"confirm_delete_{dataset.id}"
+                                ]
+                                st.rerun()
     with tab2:
         st.subheader("Create New Dataset")
         dataset_name = st.text_input(
