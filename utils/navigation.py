@@ -16,8 +16,6 @@ def sidebar():
 
         user_profile()
 
-        st.divider()
-
         page = st.radio(
 
             "",
@@ -30,15 +28,13 @@ def sidebar():
 
                 "📂 Datasets",
 
-                "📦 Products",
-
                 "📈 Forecast",
+
+                "📦 Products",
 
                 "🏭 Inventory",
 
                 "📑 Reports",
-
-                "⚙ Administration",
 
                 "🚪 Logout"
 
