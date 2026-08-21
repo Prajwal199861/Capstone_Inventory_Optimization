@@ -9,7 +9,7 @@ Description :
 Milestone 4 - Phase 3: Reports & Business Intelligence.
 
 Consolidates Forecasting, Inventory Optimization, Product Intelligence
-and AI Recommendations into report DTOs for pages/reports.py. This
+and AI Recommendations into report DTOs for app_pages/reports.py. This
 module introduces NO new forecasting or optimization calculations -
 every figure here already exists in InventoryService's recommendation
 output, the persisted batch Forecast, DemandService's demand series,
