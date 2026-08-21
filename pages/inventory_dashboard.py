@@ -195,6 +195,41 @@ def _kpi_cards(recommendations):
         )
 
 
+def _inventory_source_badge(inventory_source):
+    """Requirement 10 (Hotfix Phase 1): tells the viewer at a glance
+    whether current stock came from an actual reading, was estimated
+    from historical sales, or both."""
+
+    if not inventory_source:
+
+        return
+
+    detail_parts = []
+
+    if inventory_source["actual"]:
+
+        detail_parts.append(f"{inventory_source['actual']} actual")
+
+    if inventory_source["simulated"]:
+
+        detail_parts.append(
+            f"{inventory_source['simulated']} simulated"
+        )
+
+    if inventory_source["assumed"]:
+
+        detail_parts.append(f"{inventory_source['assumed']} assumed")
+
+    detail = f" ({', '.join(detail_parts)})" if detail_parts else ""
+
+    st.caption(
+
+        f"{inventory_source['icon']} **Inventory Source: "
+        f"{inventory_source['label']}**{detail}"
+
+    )
+
+
 def _risk_breakdown(recommendations):
 
     breakdown = InventoryMetrics.risk_breakdown(recommendations)
@@ -339,6 +374,8 @@ def inventory_dashboard():
     st.divider()
 
     st.subheader("Summary")
+
+    _inventory_source_badge(result.get("inventory_source"))
 
     _kpi_cards(recommendations)
 

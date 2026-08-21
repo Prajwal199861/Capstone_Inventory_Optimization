@@ -29,12 +29,14 @@ from config import (
     DEFAULT_OVERSTOCK_FACTOR,
     DEFAULT_REVIEW_PERIOD_DAYS,
     DEFAULT_SERVICE_LEVEL,
-    EXPORTS_DIR
+    EXPORTS_DIR,
+    MAX_REALISTIC_DAYS_REMAINING
 )
 
 from services.standardization_service import StandardizationService
 from services.demand_service import DemandService
 from services.forecast_service import ForecastService
+from services.inventory_simulation import InventorySimulationService
 from services.reorder_service import ReorderService
 from services.stock_risk_service import StockRiskService
 
@@ -75,12 +77,16 @@ class InventoryService:
         (there is no demand to optimize against without it). Missing
         Inventory data is NOT a precondition: when a product has no
         current-stock reading (no Inventory file at all, a missing
-        'Current Stock' column, or a blank cell for that row), stock is
-        assumed to have started at 0 and settled at a healthy
-        operating (target order-up-to) level rather than blocking the
+        'Current Stock' column, or a blank cell for that row), current
+        stock is estimated by replaying that product's historical
+        demand against a reorder-point/order-up-to policy (see
+        InventorySimulationService) rather than blocking the
         recommendation - real data always wins when it is present.
-        Every assumed row is flagged via the "Stock Basis" column and
-        a summary note.
+        Only when there isn't enough history to simulate does the
+        estimate fall back to a static assumed target level. Every
+        non-actual row is flagged via the "Stock Basis" column
+        ("Actual" / "Simulated" / "Assumed"), a summary note, and the
+        dataset-level "inventory_source" badge in the return value.
         """
 
         overstock_factor = overstock_factor or DEFAULT_OVERSTOCK_FACTOR
@@ -115,13 +121,17 @@ class InventoryService:
             products, "Selling Price"
         )
 
-        historical_map, history_notes = (
+        historical_map, series_map, history_notes = (
             InventoryService._historical_demand_map(dataset_id, forecast)
         )
 
         notes.extend(history_notes)
 
         rows = []
+
+        actual_stock_count = 0
+
+        simulated_stock_count = 0
 
         assumed_stock_count = 0
 
@@ -196,15 +206,13 @@ class InventoryService:
                 None
             )
 
-            position = ReorderService.compute_position(
+            position_kwargs = dict(
 
-                current_stock,
+                forecast_total=forecast_total,
 
-                forecast_total,
+                forecast_periods=forecast_periods,
 
-                forecast_periods,
-
-                forecast.granularity,
+                granularity=forecast.granularity,
 
                 lead_time_days=row_lead_time,
 
@@ -227,6 +235,22 @@ class InventoryService:
                 safety_stock_override=row_safety_override,
 
                 maximum_stock=maximum_stock
+
+            )
+
+            position, stock_basis, stock_assumed = (
+
+                InventoryService._resolve_position(
+
+                    current_stock,
+
+                    product_id,
+
+                    series_map,
+
+                    position_kwargs
+
+                )
 
             )
 
@@ -258,13 +282,29 @@ class InventoryService:
 
                 lead_time_days=position["lead_time_days"],
 
-                stock_assumed=position["stock_assumed"]
+                stock_assumed=stock_assumed
 
             )
 
             reason = classification["reason"]
 
-            if position["stock_assumed"]:
+            if stock_basis == "Simulated":
+
+                simulated_stock_count += 1
+
+                reason = (
+
+                    "No current-stock data was provided for this "
+
+                    "product; stock was estimated by replaying its "
+
+                    "historical sales against a reorder-point policy. "
+
+                    + reason
+
+                )
+
+            elif stock_basis == "Assumed":
 
                 assumed_stock_count += 1
 
@@ -272,13 +312,27 @@ class InventoryService:
 
                     "No current-stock data was provided for this "
 
-                    "product; stock is assumed to have started at 0 "
+                    "product, and there is too little sales history "
 
-                    "and settled at a healthy operating (target) "
+                    "to estimate one; stock is assumed to have started "
+
+                    "at 0 and settled at a healthy operating (target) "
 
                     "level. " + reason
 
                 )
+
+            else:
+
+                actual_stock_count += 1
+
+            days_remaining_display = InventoryService._capped_days_remaining(
+
+                position["days_remaining"],
+
+                stock_basis
+
+            )
 
             unit_cost = price_map.get(product_id)
 
@@ -298,11 +352,7 @@ class InventoryService:
 
                 "Current Stock": round(position["current_stock"], 2),
 
-                "Stock Basis": (
-                    "Assumed"
-                    if position["stock_assumed"]
-                    else "Actual"
-                ),
+                "Stock Basis": stock_basis,
 
                 "Forecast Demand": round(forecast_total, 2),
 
@@ -326,9 +376,9 @@ class InventoryService:
 
                 "Days Remaining": (
 
-                    round(position["days_remaining"], 1)
+                    round(days_remaining_display, 1)
 
-                    if position["days_remaining"] is not None
+                    if days_remaining_display is not None
 
                     else None
 
@@ -351,17 +401,35 @@ class InventoryService:
 
             })
 
+        if simulated_stock_count:
+
+            notes.append(
+
+                f"{simulated_stock_count} product(s) had no current-stock "
+
+                f"data; their stock was estimated by replaying "
+
+                f"historical sales against a reorder-point policy. "
+
+                f"Upload/map an Inventory file with 'Current Stock' "
+
+                f"for exact numbers."
+
+            )
+
         if assumed_stock_count:
 
             notes.append(
 
                 f"{assumed_stock_count} product(s) had no current-stock "
 
-                f"data; their recommendation assumes stock started at "
+                f"data and too little sales history to estimate one; "
 
-                f"0 and has since settled at a healthy operating "
+                f"their recommendation assumes stock started at 0 and "
 
-                f"(target) level. Upload/map an Inventory file with "
+                f"has since settled at a healthy operating (target) "
+
+                f"level. Upload/map an Inventory file with "
 
                 f"'Current Stock' for accurate numbers."
 
@@ -423,7 +491,17 @@ class InventoryService:
 
             "forecast_created_at": forecast.created_at,
 
-            "generated_at": generated_at
+            "generated_at": generated_at,
+
+            "inventory_source": InventoryService._inventory_source_summary(
+
+                actual_stock_count,
+
+                simulated_stock_count,
+
+                assumed_stock_count
+
+            )
 
         }
 
@@ -808,19 +886,165 @@ class InventoryService:
         }
 
     @staticmethod
+    def _resolve_position(
+            current_stock: float | None,
+            product_id: str,
+            series_map: dict,
+            position_kwargs: dict
+    ):
+        """
+        Decides how a product's current stock is known and computes
+        its full stock position accordingly:
+
+        - Actual: a real "Current Stock" reading was provided - used
+          as-is.
+        - Simulated: no reading was provided, but there is enough
+          historical demand to replay against a reorder-point policy
+          (InventorySimulationService) and estimate one.
+        - Assumed: no reading and not enough history to simulate -
+          falls back to ReorderService's own static assumption (stock
+          settled at the target/order-up-to level).
+
+        Returns (position, stock_basis, stock_assumed). stock_assumed
+        is True for BOTH Simulated and Assumed - a replayed estimate
+        is still not a confirmed physical count, so StockRiskService
+        must never read a Simulated 0 as a confirmed stock-out any
+        more than an Assumed one.
+        """
+
+        if current_stock is not None:
+
+            position = ReorderService.compute_position(
+                current_stock,
+                **position_kwargs
+            )
+
+            return position, "Actual", False
+
+        preliminary = ReorderService.compute_position(
+            None,
+            **position_kwargs
+        )
+
+        estimated_stock = (
+
+            InventorySimulationService.simulate_current_stock(
+
+                series_map.get(product_id),
+
+                opening_stock=preliminary["target_stock_level"],
+
+                reorder_point=preliminary["reorder_point"],
+
+                target_stock_level=preliminary["target_stock_level"]
+
+            )
+
+        )
+
+        if estimated_stock is None:
+
+            return preliminary, "Assumed", True
+
+        position = ReorderService.compute_position(
+            estimated_stock,
+            **position_kwargs
+        )
+
+        return position, "Simulated", True
+
+    @staticmethod
+    def _capped_days_remaining(
+            days_remaining: float | None,
+            stock_basis: str
+    ) -> float | None:
+        """
+        Nulls out a "Days Remaining" figure derived from Simulated/
+        Assumed stock once it passes MAX_REALISTIC_DAYS_REMAINING -
+        almost always a near-zero forecast demand rate dwarfed by a
+        volatility-driven safety-stock buffer, not an actionable
+        number. An Actual reading is always trusted and shown as-is,
+        however large, since it reflects a real physical count.
+        """
+
+        if (
+
+                days_remaining is None
+
+                or stock_basis == "Actual"
+
+                or days_remaining <= MAX_REALISTIC_DAYS_REMAINING
+
+        ):
+
+            return days_remaining
+
+        return None
+
+    @staticmethod
+    def _inventory_source_summary(
+            actual_count: int,
+            simulated_count: int,
+            assumed_count: int
+    ) -> dict:
+        """
+        Dataset-level "where did current stock come from" badge for
+        the dashboard summary. Distinguishes a fully-actual dataset
+        from one relying (wholly or partly) on the historical-sales
+        simulation, so the source of every number stays transparent.
+        """
+
+        if simulated_count == 0 and assumed_count == 0:
+
+            label = "Actual Inventory Dataset"
+
+            icon = "🟢"
+
+        elif actual_count == 0:
+
+            label = "Simulated from Historical Sales"
+
+            icon = "🟡"
+
+        else:
+
+            label = "Mixed - Actual + Simulated/Assumed"
+
+            icon = "🟡"
+
+        return {
+
+            "label": label,
+
+            "icon": icon,
+
+            "actual": actual_count,
+
+            "simulated": simulated_count,
+
+            "assumed": assumed_count
+
+        }
+
+    @staticmethod
     def _historical_demand_map(
             dataset_id: int,
             forecast
     ):
         """
-        {product_id: trailing actual demand over the same number of
-        periods as the forecast horizon}, the real computed baseline
-        "Demand Change %" is measured against. A genuine calculation
-        from historical sales - never something the AI layer is asked
-        to estimate.
+        ({product_id: trailing actual demand over the same number of
+        periods as the forecast horizon}, {product_id: full historical
+        Series, oldest first}, [note]).
 
-        Returns ({}, [note]) instead of raising when history can't be
-        rebuilt for any reason - Demand Change % is supplementary
+        The trailing totals are the real computed baseline "Demand
+        Change %" is measured against. The full series is reused by
+        InventorySimulationService to estimate current stock for
+        products with no actual reading - one load of Sales serves
+        both, since batch-building per-product series is the same
+        underlying query either way.
+
+        Returns ({}, {}, [note]) instead of raising when history can't
+        be rebuilt for any reason - both consumers are supplementary
         context, never a precondition for recommendations.
         """
 
@@ -838,21 +1062,23 @@ class InventoryService:
 
         except ValueError as error:
 
-            return {}, [
+            return {}, {}, [
 
                 f"Demand Change % is unavailable: {error}"
 
             ]
 
-        return {
+        series_map = product_data["series_map"]
+
+        historical_totals = {
 
             product_id: float(series.tail(forecast.horizon).sum())
 
-            for product_id, series in (
-                product_data["series_map"].items()
-            )
+            for product_id, series in series_map.items()
 
-        }, []
+        }
+
+        return historical_totals, series_map, []
 
     @staticmethod
     def _store_or_default(
