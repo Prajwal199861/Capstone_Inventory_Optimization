@@ -239,6 +239,162 @@ def test_iter_inventory_rows_adds_forecast_only_products():
     assert rows["P2"]["store_id"] == "All Stores"
 
 
+def test_capped_days_remaining_leaves_actual_stock_uncapped():
+
+    # An Actual reading is trusted as-is, however large.
+    assert InventoryService._capped_days_remaining(
+        5_000_000.0,
+        "Actual"
+    ) == 5_000_000.0
+
+
+def test_capped_days_remaining_nulls_unrealistic_simulated_value():
+
+    assert InventoryService._capped_days_remaining(
+        5_000_000.0,
+        "Simulated"
+    ) is None
+
+    assert InventoryService._capped_days_remaining(
+        5_000_000.0,
+        "Assumed"
+    ) is None
+
+
+def test_capped_days_remaining_keeps_realistic_simulated_value():
+
+    assert InventoryService._capped_days_remaining(
+        18.0,
+        "Simulated"
+    ) == 18.0
+
+
+def test_capped_days_remaining_passes_through_none():
+
+    assert InventoryService._capped_days_remaining(None, "Assumed") is None
+
+
+def test_inventory_source_summary_all_actual():
+
+    summary = InventoryService._inventory_source_summary(10, 0, 0)
+
+    assert summary["label"] == "Actual Inventory Dataset"
+
+    assert summary["icon"] == "🟢"
+
+
+def test_inventory_source_summary_all_simulated_or_assumed():
+
+    summary = InventoryService._inventory_source_summary(0, 6, 2)
+
+    assert summary["label"] == "Simulated from Historical Sales"
+
+    assert summary["icon"] == "🟡"
+
+
+def test_inventory_source_summary_mixed():
+
+    summary = InventoryService._inventory_source_summary(4, 3, 1)
+
+    assert summary["label"] == "Mixed - Actual + Simulated/Assumed"
+
+
+def test_resolve_position_uses_actual_stock_as_is():
+
+    position_kwargs = dict(
+        forecast_total=90.0,
+        forecast_periods=3,
+        granularity="Monthly",
+        lead_time_days=7.0,
+        review_period_days=7.0,
+        service_level=0.95,
+        daily_demand_std=None,
+        safety_stock_override=None,
+        maximum_stock=None
+    )
+
+    position, stock_basis, stock_assumed = (
+        InventoryService._resolve_position(
+            120.0,
+            "P1",
+            {},
+            position_kwargs
+        )
+    )
+
+    assert stock_basis == "Actual"
+
+    assert stock_assumed is False
+
+    assert position["current_stock"] == 120.0
+
+
+def test_resolve_position_simulates_when_history_available():
+
+    position_kwargs = dict(
+        forecast_total=0.03,
+        forecast_periods=3,
+        granularity="Monthly",
+        lead_time_days=7.0,
+        review_period_days=7.0,
+        service_level=0.95,
+        daily_demand_std=0.6,
+        safety_stock_override=None,
+        maximum_stock=None
+    )
+
+    series_map = {
+        "P1": pd.Series([0.0, 0.0, 3.0, 0.0, 0.0, 2.0])
+    }
+
+    position, stock_basis, stock_assumed = (
+        InventoryService._resolve_position(
+            None,
+            "P1",
+            series_map,
+            position_kwargs
+        )
+    )
+
+    assert stock_basis == "Simulated"
+
+    assert stock_assumed is True
+
+    # The whole point of the fix: no longer pinned at the (safety
+    # stock dominated) target level for a near-zero-demand product.
+    assert position["current_stock"] < position["target_stock_level"]
+
+
+def test_resolve_position_falls_back_to_assumed_without_history():
+
+    position_kwargs = dict(
+        forecast_total=90.0,
+        forecast_periods=3,
+        granularity="Monthly",
+        lead_time_days=7.0,
+        review_period_days=7.0,
+        service_level=0.95,
+        daily_demand_std=None,
+        safety_stock_override=None,
+        maximum_stock=None
+    )
+
+    position, stock_basis, stock_assumed = (
+        InventoryService._resolve_position(
+            None,
+            "P404",
+            {},
+            position_kwargs
+        )
+    )
+
+    assert stock_basis == "Assumed"
+
+    assert stock_assumed is True
+
+    assert position["current_stock"] == position["target_stock_level"]
+
+
 # ---------------------------------------------------------------------
 # Plain-python runner
 # ---------------------------------------------------------------------

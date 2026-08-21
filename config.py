@@ -140,6 +140,20 @@ DEFAULT_ORDER_MULTIPLE = 1
 
 DEFAULT_MINIMUM_ORDER_QUANTITY = 0
 
+# Hotfix Phase 1: when no actual "Current Stock" reading exists for a
+# product, stock is estimated by replaying its historical demand
+# (see services/inventory_simulation.py) instead of assuming it sits
+# exactly at the target level. A series shorter than this has too few
+# points to simulate a believable stock trajectory.
+MIN_SIMULATION_HISTORY_PERIODS = 3
+
+# A "Days Remaining" figure above this is not something a planner can
+# act on and usually means the safety-stock buffer (sized for demand
+# volatility) dwarfs a near-zero average demand rate for that product.
+# Applied only to Assumed/Simulated stock (our own estimate) - never
+# to an actual Current Stock reading, which is trusted as-is.
+MAX_REALISTIC_DAYS_REMAINING = 730
+
 
 # =============================================================================
 # AI Decision Support Configuration (Phase 8)
