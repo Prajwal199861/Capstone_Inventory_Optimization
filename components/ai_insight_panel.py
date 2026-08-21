@@ -8,7 +8,7 @@ File : ai_insight_panel.py
 Description :
 Phase 8 / Milestone 4 - Phase 2: the "Generate AI Insight" button,
 session-cached result, and rendered sections for one product row.
-Shared by pages/recommendations.py and pages/products.py so this
+Shared by app_pages/recommendations.py and app_pages/products.py so this
 generate-on-demand / cache-across-reruns interaction pattern lives in
 exactly one place instead of being duplicated per page.
 =============================================================================

@@ -35,7 +35,7 @@ from services.inventory_service import InventoryService
 
 from utils.inventory_metrics import InventoryMetrics
 
-from pages.recommendations import render_recommendations
+from app_pages.recommendations import render_recommendations
 
 
 def _settings_controls():

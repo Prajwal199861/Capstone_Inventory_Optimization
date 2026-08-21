@@ -4,7 +4,11 @@ Session Manager
 =============================================================================
 """
 
+from datetime import datetime, timedelta
+
 import streamlit as st
+
+from config import SESSION_TIMEOUT_MINUTES
 
 
 class SessionManager:
@@ -22,7 +26,9 @@ class SessionManager:
 
             "role": None,
 
-            "full_name": None
+            "full_name": None,
+
+            "last_active": None
 
         }
 
@@ -45,6 +51,8 @@ class SessionManager:
 
         st.session_state.full_name = user.full_name
 
+        st.session_state.last_active = datetime.now()
+
     @staticmethod
     def logout():
 
@@ -58,7 +66,9 @@ class SessionManager:
 
             "role",
 
-            "full_name"
+            "full_name",
+
+            "last_active"
 
         ]
 
@@ -67,3 +77,29 @@ class SessionManager:
             if key in st.session_state:
 
                 del st.session_state[key]
+
+    @staticmethod
+    def is_expired() -> bool:
+        """
+        True once more than SESSION_TIMEOUT_MINUTES has passed since
+        the last page load/interaction this user made. Must be called
+        BEFORE touch() on every rerun, while "last_active" still holds
+        the time of the previous interaction rather than this one.
+        """
+
+        last_active = st.session_state.get("last_active")
+
+        if last_active is None:
+
+            return False
+
+        elapsed = datetime.now() - last_active
+
+        return elapsed > timedelta(minutes=SESSION_TIMEOUT_MINUTES)
+
+    @staticmethod
+    def touch():
+        """Records this interaction as the session's most recent
+        activity, resetting the inactivity clock."""
+
+        st.session_state.last_active = datetime.now()

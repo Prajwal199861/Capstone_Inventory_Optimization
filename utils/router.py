@@ -6,14 +6,14 @@ Router
 
 import streamlit as st
 
-from pages.dashboard import dashboard
-from pages.dataset_management import dataset_management
-from pages.dataset_details import dataset_details
-from pages.standardized_preview import standardized_preview
-from pages.forecast import forecast
-from pages.inventory_dashboard import inventory_dashboard
-from pages.products import products
-from pages.reports import reports
+from app_pages.dashboard import dashboard
+from app_pages.dataset_management import dataset_management
+from app_pages.dataset_details import dataset_details
+from app_pages.standardized_preview import standardized_preview
+from app_pages.forecast import forecast
+from app_pages.inventory_dashboard import inventory_dashboard
+from app_pages.products import products
+from app_pages.reports import reports
 
 
 def route(page):

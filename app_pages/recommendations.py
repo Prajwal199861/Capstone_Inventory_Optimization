@@ -9,7 +9,7 @@ Description :
 Milestone 3 - Phase 3: renders the inventory recommendations table -
 Store/Product/Risk filters, the detail grid and the CSV export button.
 
-Not a routed page on its own; imported by pages/inventory_dashboard.py
+Not a routed page on its own; imported by app_pages/inventory_dashboard.py
 so the detail-table concern can evolve (e.g. pagination, a dedicated
 "Recommendations" nav entry) without touching the KPI/run workflow.
 =============================================================================
